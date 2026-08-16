@@ -8,13 +8,13 @@ import (
 	"strings"
 	"syscall"
 
-	internal "github.com/r4ppz/mindm/internal"
+	internal "github.com/r4ppz/minidm/internal"
 	"golang.org/x/sys/unix"
 )
 
 func main() {
 	if os.Getuid() != 0 {
-		fmt.Fprintln(os.Stderr, "mindm: must be run as root")
+		fmt.Fprintln(os.Stderr, "minidm: must be run as root")
 		os.Exit(1)
 	}
 

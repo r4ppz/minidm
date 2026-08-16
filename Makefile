@@ -1,4 +1,4 @@
-BINARY := mindm
+BINARY := minidm
 DIR    := bin
 
 .PHONY: all build run clean fmt vet test lint install
@@ -7,7 +7,7 @@ all: build
 
 build:
 	mkdir -p $(DIR)
-	CGO_ENABLED=1 go build -o $(DIR)/$(BINARY) ./cmd/mindm
+	CGO_ENABLED=1 go build -o $(DIR)/$(BINARY) ./cmd/minidm
 
 run: build
 	sudo $(DIR)/$(BINARY)

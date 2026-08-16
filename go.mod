@@ -1,4 +1,4 @@
-module github.com/r4ppz/mindm
+module github.com/r4ppz/minidm
 
 go 1.26.6
 

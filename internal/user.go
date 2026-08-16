@@ -1,4 +1,4 @@
-package mindm
+package minidm
 
 import (
 	"bufio"
