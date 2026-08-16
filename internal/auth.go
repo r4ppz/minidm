@@ -43,13 +43,11 @@ func Login(user string, password []byte) error {
 	if err := t.AcctMgmt(0); err != nil {
 		return err
 	}
-	if err := t.SetCred(pam.EstablishCred); err != nil {
-		return err
-	}
 	if err := t.OpenSession(0); err != nil {
 		return err
 	}
-	defer t.CloseSession(0)    // runs after the session exits
+	defer t.CloseSession(0) // runs after the session exits
+	defer t.SetCred(pam.DeleteCred)
 	env, err := t.GetEnvList() // XDG_RUNTIME_DIR, XDG_SESSION_ID from pam_systemd
 	if err != nil {
 		return err
