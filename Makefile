@@ -7,7 +7,7 @@ all: build
 
 build:
 	mkdir -p $(DIR)
-	CGO_ENABLED=1 go build -o $(DIR)/$(BINARY) .
+	CGO_ENABLED=1 go build -o $(DIR)/$(BINARY) ./cmd/mindm
 
 run: build
 	sudo $(DIR)/$(BINARY)
