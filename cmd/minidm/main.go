@@ -8,7 +8,7 @@ import (
 	"strings"
 	"syscall"
 
-	internal "github.com/r4ppz/minidm/internal"
+	auth "github.com/r4ppz/minidm/internal"
 	"golang.org/x/sys/unix"
 )
 
@@ -20,13 +20,15 @@ func main() {
 
 	reader := bufio.NewReader(os.Stdin)
 
+	fmt.Println("Minimal Display Manager")
+
 	for {
-		fmt.Println("Minimal Display Manager")
 
 		fmt.Print("Username: ")
 		username, err := readLine(reader)
 		if err != nil {
-			break
+			fmt.Fprintln(os.Stderr, "read username:", err)
+			return
 		}
 		if username == "" {
 			continue
@@ -36,11 +38,11 @@ func main() {
 		pw, err := readPassword(reader)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "read password:", err)
-			break
+			return
 		}
 		fmt.Println()
 
-		if err := internal.Login(username, pw); err != nil {
+		if err := auth.Login(username, pw); err != nil {
 			fmt.Fprintf(os.Stderr, "login failed: %v\n", err)
 			continue
 		}
