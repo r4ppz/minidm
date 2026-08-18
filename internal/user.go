@@ -3,7 +3,7 @@ package minidm
 import (
 	"bufio"
 	"os"
-	osuser "os/user"
+	"os/user"
 	"strconv"
 	"strings"
 )
@@ -20,7 +20,7 @@ type UserInfo struct {
 // LookupUser resolves the user's uid, gid, supplementary groups, home
 // directory and login shell.
 func LookupUser(username string) (*UserInfo, error) {
-	u, err := osuser.Lookup(username)
+	u, err := user.Lookup(username)
 	if err != nil {
 		return nil, err
 	}
