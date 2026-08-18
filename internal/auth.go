@@ -7,11 +7,11 @@ import (
 	"github.com/msteinert/pam/v2"
 )
 
-func Login(user string, password []byte) error {
+func Login(user string, password string) error {
 	t, err := pam.StartFunc("login", user, func(s pam.Style, msg string) (string, error) {
 		switch s {
 		case pam.PromptEchoOff:
-			return string(password), nil
+			return password, nil
 		case pam.PromptEchoOn:
 			return user, nil
 		case pam.ErrorMsg:

@@ -14,7 +14,7 @@ import (
 
 func main() {
 	if os.Getuid() != 0 {
-		fmt.Fprintln(os.Stderr, "minidm: must be run as root")
+		fmt.Fprintln(os.Stderr, "Must be run as root")
 		os.Exit(1)
 	}
 
@@ -23,7 +23,6 @@ func main() {
 	fmt.Println("Minimal Display Manager")
 
 	for {
-
 		fmt.Print("Username: ")
 		username, err := readLine(reader)
 		if err != nil {
@@ -35,14 +34,18 @@ func main() {
 		}
 
 		fmt.Print("Password: ")
-		pw, err := readPassword(reader)
+		password, err := readPassword(reader)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "read password:", err)
 			return
 		}
+		if password == "" {
+			continue
+		}
+
 		fmt.Println()
 
-		if err := auth.Login(username, pw); err != nil {
+		if err := auth.Login(username, password); err != nil {
 			fmt.Fprintf(os.Stderr, "login failed: %v\n", err)
 			continue
 		}
@@ -54,19 +57,19 @@ func readLine(r *bufio.Reader) (string, error) {
 	return strings.TrimSpace(line), err
 }
 
-func readPassword(r *bufio.Reader) ([]byte, error) {
+func readPassword(r *bufio.Reader) (string, error) {
 	fd := int(syscall.Stdin)
 	old, err := unix.IoctlGetTermios(fd, unix.TCGETS)
 	if err == nil {
 		noecho := *old
 		noecho.Lflag &^= unix.ECHO
 		if err := unix.IoctlSetTermios(fd, unix.TCSETS, &noecho); err != nil {
-			return nil, err
+			return "", err
 		}
 		defer unix.IoctlSetTermios(fd, unix.TCSETS, old)
 	}
 
 	line, err := r.ReadBytes('\n')
 	line = bytes.TrimRight(line, "\r\n")
-	return line, err
+	return string(line), err
 }
