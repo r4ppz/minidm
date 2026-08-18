@@ -69,20 +69,25 @@ func CurrentTTY() (string, error) {
 // shellFor reads the user's login shell from /etc/passwd, since
 // os/user does not expose it.
 func shellFor(username string) string {
+	fallback := "/bin/sh"
+
 	f, err := os.Open("/etc/passwd")
 	if err != nil {
-		return "/bin/sh"
+		return fallback
 	}
 	defer f.Close()
+
 	s := bufio.NewScanner(f)
+	if err := s.Err(); err != nil {
+		return fallback
+	}
+
 	for s.Scan() {
 		parts := strings.Split(s.Text(), ":")
 		if len(parts) > 6 && parts[0] == username {
 			return parts[6]
 		}
 	}
-	if err := s.Err(); err != nil {
-		return "/bin/sh"
-	}
-	return "/bin/sh"
+
+	return fallback
 }
