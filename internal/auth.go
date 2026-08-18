@@ -13,7 +13,7 @@ func Login(user string, password []byte) error {
 	t, err := pam.StartFunc("login", user, func(s pam.Style, msg string) (string, error) {
 		switch s {
 		case pam.PromptEchoOff:
-			return string(password), nil // pam_unix asks -> give it
+			return string(password), nil
 		case pam.PromptEchoOn:
 			return user, nil
 		case pam.ErrorMsg:
@@ -29,9 +29,17 @@ func Login(user string, password []byte) error {
 	if err != nil {
 		return err
 	}
-	defer t.End()
 
-	if tty := CurrentTTY(); tty != "" {
+	defer t.End()
+	defer t.CloseSession(0)
+	defer t.SetCred(pam.DeleteCred)
+
+	tty, err := CurrentTTY()
+	if err != nil {
+		return err
+	}
+
+	if tty != "" {
 		if err := t.SetItem(pam.Tty, tty); err != nil {
 			return err
 		}
@@ -40,15 +48,16 @@ func Login(user string, password []byte) error {
 	if err := t.Authenticate(0); err != nil {
 		return err
 	}
+
 	if err := t.AcctMgmt(0); err != nil {
 		return err
 	}
+
 	if err := t.OpenSession(0); err != nil {
 		return err
 	}
-	defer t.CloseSession(0) // runs after the session exits
-	defer t.SetCred(pam.DeleteCred)
-	env, err := t.GetEnvList() // XDG_RUNTIME_DIR, XDG_SESSION_ID from pam_systemd
+
+	env, err := t.GetEnvList()
 	if err != nil {
 		return err
 	}

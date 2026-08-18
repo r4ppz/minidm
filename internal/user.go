@@ -54,12 +54,16 @@ func LookupUser(username string) (*UserInfo, error) {
 }
 
 // CurrentTTY reports the terminal mindm is running on, e.g. /dev/tty1.
-func CurrentTTY() string {
+func CurrentTTY() (string, error) {
 	tty, err := os.Readlink("/proc/self/fd/0")
-	if err != nil || tty == "" {
-		return ""
+	if err != nil {
+		return "", err
 	}
-	return tty
+	if tty == "" {
+		return "", nil
+	}
+
+	return tty, nil
 }
 
 // shellFor reads the user's login shell from /etc/passwd, since
