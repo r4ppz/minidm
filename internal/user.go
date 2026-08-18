@@ -8,7 +8,6 @@ import (
 	"strings"
 )
 
-// UserInfo holds the account details needed to launch a session.
 type UserInfo struct {
 	Uid     uint32
 	Gid     uint32
@@ -17,8 +16,6 @@ type UserInfo struct {
 	Shell   string
 }
 
-// LookupUser resolves the user's uid, gid, supplementary groups, home
-// directory and login shell.
 func LookupUser(username string) (*UserInfo, error) {
 	u, err := user.Lookup(username)
 	if err != nil {
@@ -53,7 +50,6 @@ func LookupUser(username string) (*UserInfo, error) {
 	return info, nil
 }
 
-// CurrentTTY reports the terminal mindm is running on, e.g. /dev/tty1.
 func CurrentTTY() (string, error) {
 	tty, err := os.Readlink("/proc/self/fd/0")
 	if err != nil {
@@ -66,8 +62,6 @@ func CurrentTTY() (string, error) {
 	return tty, nil
 }
 
-// shellFor reads the user's login shell from /etc/passwd, since
-// os/user does not expose it.
 func shellFor(username string) string {
 	fallback := "/bin/sh"
 

@@ -7,8 +7,6 @@ import (
 	"github.com/msteinert/pam/v2"
 )
 
-// Login runs the full PAM transaction for user and, on success,
-// launches the session. It blocks until the session exits.
 func Login(user string, password []byte) error {
 	t, err := pam.StartFunc("login", user, func(s pam.Style, msg string) (string, error) {
 		switch s {

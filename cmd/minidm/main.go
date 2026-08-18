@@ -49,16 +49,11 @@ func main() {
 	}
 }
 
-// readLine reads a line from r and trims surrounding whitespace. It
-// returns an error on EOF so callers can stop reading.
 func readLine(r *bufio.Reader) (string, error) {
 	line, err := r.ReadString('\n')
 	return strings.TrimSpace(line), err
 }
 
-// readPassword reads a line from r with echo disabled. It reads from
-// the same reader as the username so the input stays in sync, even for
-// piped or pasted input.
 func readPassword(r *bufio.Reader) ([]byte, error) {
 	fd := int(syscall.Stdin)
 	old, err := unix.IoctlGetTermios(fd, unix.TCGETS)

@@ -6,10 +6,9 @@ import (
 	"syscall"
 )
 
+// Hardcoded for now
 const sessionCmd = "/usr/bin/start-hyprland"
 
-// RunSession launches the user's session as the given user and blocks
-// until it exits.
 func RunSession(user string, pamEnv map[string]string) error {
 	u, err := LookupUser(user)
 	if err != nil {
@@ -35,5 +34,5 @@ func RunSession(user string, pamEnv map[string]string) error {
 	}
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 
-	return cmd.Run() // blocks until Hyprland quits, then we loop back to the login prompt
+	return cmd.Run()
 }
