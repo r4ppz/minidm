@@ -34,12 +34,12 @@ func Login(user string, password string) error {
 	defer tx.CloseSession(0)
 	defer tx.SetCred(pam.DeleteCred)
 
-	tty, err := CurrentTTY()
+	tty, ok, err := CurrentTTY()
 	if err != nil {
 		return err
 	}
 
-	if tty != "" {
+	if ok && tty != "" {
 		if err := tx.SetItem(pam.Tty, tty); err != nil {
 			return err
 		}

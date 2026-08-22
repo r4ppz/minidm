@@ -2,10 +2,13 @@ package minidm
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"os/user"
 	"strconv"
 	"strings"
+
+	"golang.org/x/term"
 )
 
 type UserInfo struct {
@@ -50,16 +53,19 @@ func LookupUser(username string) (*UserInfo, error) {
 	return info, nil
 }
 
-func CurrentTTY() (string, error) {
-	tty, err := os.Readlink("/proc/self/fd/0")
-	if err != nil {
-		return "", err
-	}
-	if tty == "" {
-		return "", nil
+func CurrentTTY() (ttyPath string, isTTY bool, err error) {
+	fd := int(os.Stdin.Fd())
+
+	if !term.IsTerminal(fd) {
+		return "", false, nil
 	}
 
-	return tty, nil
+	tty, err := os.Readlink(fmt.Sprintf("/proc/self/fd/%d", fd))
+	if err != nil {
+		return "", false, err
+	}
+
+	return tty, true, nil
 }
 
 func shellFor(username string) string {
