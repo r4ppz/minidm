@@ -20,9 +20,10 @@ func main() {
 
 	reader := bufio.NewReader(os.Stdin)
 
-	fmt.Println("Minimal Display Manager")
-
 	for {
+		fmt.Print("\033[2J\033[3J\033[H") // clear term
+		fmt.Println("Minimal Display Manager")
+
 		fmt.Print("Username: ")
 		username, err := readLine(reader)
 		if err != nil {
