@@ -1,22 +1,22 @@
 BINARY := minidm
-DIR    := bin
+BIN_DIR := bin
 
-.PHONY: all build run clean fmt vet test lint install
+.PHONY: build run clean fmt fmt-check vet test staticcheck lint install
 
 all: build
 
 build:
-	mkdir -p $(DIR)
-	CGO_ENABLED=1 go build -o $(DIR)/$(BINARY) ./cmd/minidm
+	mkdir -p $(BIN_DIR)
+	go build -o $(BIN_DIR)/$(BINARY) ./cmd/minidm
 
 run: build
-	sudo $(DIR)/$(BINARY)
-
-clean:
-	rm -rf $(DIR)
+	sudo ./$(BIN_DIR)/$(BINARY)
 
 fmt:
-	gofmt -w .
+	go fmt ./...
+
+fmt-check:
+	test -z "$$(gofmt -s -l .)"
 
 vet:
 	go vet ./...
@@ -24,8 +24,13 @@ vet:
 test:
 	go test ./...
 
-lint:
+staticcheck:
 	staticcheck ./...
 
+lint: fmt-check vet staticcheck
+
 install: build
-	sudo install -m 755 $(DIR)/$(BINARY) /usr/local/bin/$(BINARY)
+	sudo install -m 755 $(BIN_DIR)/$(BINARY) /usr/local/bin/$(BINARY)
+
+clean:
+	rm -rf $(BIN_DIR)

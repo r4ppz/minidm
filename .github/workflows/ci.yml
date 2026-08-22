@@ -15,24 +15,21 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: "1.26.6"
+          cache: true
 
       - name: Install build dependencies
-        run: sudo apt-get update && sudo apt-get install -y libpam0g-dev
-
-      - name: Verify formatting
-        run: test -z "$(gofmt -s -l .)"
-
-      - name: Build
-        run: make build
-
-      - name: Vet
-        run: make vet
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpam0g-dev
 
       - name: Install staticcheck
         run: go install honnef.co/go/tools/cmd/staticcheck@2026.1
 
-      - name: Static check
+      - name: Lint
         run: make lint
 
-      - name: Run tests
+      - name: Build
+        run: make build
+
+      - name: Test
         run: make test
