@@ -29,8 +29,16 @@ staticcheck:
 
 lint: fmt-check vet staticcheck
 
-install: build
-	sudo install -m 755 $(BIN_DIR)/$(BINARY) /usr/local/bin/$(BINARY)
+install:
+	@set -e; \
+	TMPDIR=$$(mktemp -d); \
+	cp PKGBUILD "$$TMPDIR/"; \
+	cd "$$TMPDIR"; \
+	makepkg -si; \
+	STATUS=$$?; \
+	cd "$$OLDPWD"; \
+	rm -rf "$$TMPDIR"; \
+	exit $$STATUS
 
 clean:
 	rm -rf $(BIN_DIR)
