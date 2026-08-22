@@ -32,7 +32,7 @@ lint: fmt-check vet staticcheck
 install:
 	@set -e; \
 	TMPDIR=$$(mktemp -d); \
-	cp PKGBUILD "$$TMPDIR/"; \
+	cp package/PKGBUILD "$$TMPDIR/"; \
 	cd "$$TMPDIR"; \
 	makepkg -si; \
 	STATUS=$$?; \

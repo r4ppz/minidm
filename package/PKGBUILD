@@ -19,5 +19,5 @@ build() {
 package() {
 	cd "$srcdir/$pkgname"
 	install -Dm755 bin/minidm "$pkgdir/usr/bin/minidm"
-	install -Dm644 minidm.service "$pkgdir/usr/lib/systemd/system/minidm.service"
+	install -Dm644 package/minidm.service "$pkgdir/usr/lib/systemd/system/minidm.service"
 }
