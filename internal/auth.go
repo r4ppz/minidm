@@ -8,7 +8,7 @@ import (
 )
 
 func Login(user string, password string) error {
-	t, err := pam.StartFunc("login", user, func(s pam.Style, msg string) (string, error) {
+	handler := func(s pam.Style, msg string) (string, error) {
 		switch s {
 		case pam.PromptEchoOff:
 			return password, nil
@@ -23,14 +23,16 @@ func Login(user string, password string) error {
 		default:
 			return "", fmt.Errorf("unknown style %v", s)
 		}
-	})
+	}
+
+	tx, err := pam.StartFunc("login", user, handler)
 	if err != nil {
 		return err
 	}
 
-	defer t.End()
-	defer t.CloseSession(0)
-	defer t.SetCred(pam.DeleteCred)
+	defer tx.End()
+	defer tx.CloseSession(0)
+	defer tx.SetCred(pam.DeleteCred)
 
 	tty, err := CurrentTTY()
 	if err != nil {
@@ -38,24 +40,24 @@ func Login(user string, password string) error {
 	}
 
 	if tty != "" {
-		if err := t.SetItem(pam.Tty, tty); err != nil {
+		if err := tx.SetItem(pam.Tty, tty); err != nil {
 			return err
 		}
 	}
 
-	if err := t.Authenticate(0); err != nil {
+	if err := tx.Authenticate(0); err != nil {
 		return err
 	}
 
-	if err := t.AcctMgmt(0); err != nil {
+	if err := tx.AcctMgmt(0); err != nil {
 		return err
 	}
 
-	if err := t.OpenSession(0); err != nil {
+	if err := tx.OpenSession(0); err != nil {
 		return err
 	}
 
-	env, err := t.GetEnvList()
+	env, err := tx.GetEnvList()
 	if err != nil {
 		return err
 	}
