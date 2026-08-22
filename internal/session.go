@@ -21,6 +21,8 @@ func RunSession(user string, pamEnv map[string]string) error {
 		"LOGNAME=" + user,
 		"SHELL=" + u.Shell,
 		"PATH=/usr/local/bin:/usr/bin:/bin",
+		"XDG_SESSION_TYPE=wayland",
+		"XDG_SESSION_CLASS=user",
 	}
 	for k, v := range pamEnv {
 		env = append(env, k+"="+v)
