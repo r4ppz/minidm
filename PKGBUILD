@@ -1,0 +1,23 @@
+# Do not use this
+pkgname=minidm
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Minimal display manager"
+arch=('x86_64')
+url="https://github.com/r4ppz/minidm"
+license=('MIT')
+depends=('pam')
+makedepends=('go')
+source=("git+https://github.com/r4ppz/minidm.git")
+sha256sums=('SKIP') # nada
+
+build() {
+	cd "$srcdir/$pkgname"
+	make build
+}
+
+package() {
+	cd "$srcdir/$pkgname"
+	install -Dm755 bin/minidm "$pkgdir/usr/bin/minidm"
+	install -Dm644 minidm.service "$pkgdir/usr/lib/systemd/system/minidm.service"
+}
