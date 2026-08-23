@@ -19,12 +19,17 @@ func main() {
 	}
 
 	reader := bufio.NewReader(os.Stdin)
+	var lastErr string
 
 	for {
 		fmt.Print("\033[2J\033[3J\033[H") // clear term
-		fmt.Println("Minimal Display Manager")
 
-		fmt.Print("Username: ")
+		if lastErr != "" {
+			fmt.Fprint(os.Stderr, lastErr)
+			lastErr = ""
+		}
+
+		fmt.Print("\nUsername: ")
 		username, err := readLine(reader)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "read username:", err)
@@ -47,7 +52,7 @@ func main() {
 		fmt.Println()
 
 		if err := auth.Login(username, password); err != nil {
-			fmt.Fprintf(os.Stderr, "login failed: %v\n", err)
+			lastErr = fmt.Sprintf("login failed: %v\n", err)
 			continue
 		}
 	}
