@@ -23,9 +23,10 @@ func main() {
 
 	for {
 		fmt.Print("\033[2J\033[3J\033[H") // clear term
+		fmt.Printf("\nWelcome! :0\n")
 
 		if lastErr != "" {
-			fmt.Fprint(os.Stderr, lastErr)
+			fmt.Fprintln(os.Stderr, lastErr)
 			lastErr = ""
 		}
 
@@ -52,7 +53,7 @@ func main() {
 		fmt.Println()
 
 		if err := auth.Login(username, password); err != nil {
-			lastErr = fmt.Sprintf("login failed: %v\n", err)
+			lastErr = err.Error()
 			continue
 		}
 	}
