@@ -20,16 +20,16 @@ type UserInfo struct {
 }
 
 func LookupUser(username string) (*UserInfo, error) {
-	u, err := user.Lookup(username)
+	usr, err := user.Lookup(username)
 	if err != nil {
 		return nil, err
 	}
 
-	uid, err := strconv.ParseUint(u.Uid, 10, 32)
+	uid, err := strconv.ParseUint(usr.Uid, 10, 32)
 	if err != nil {
 		return nil, err
 	}
-	gid, err := strconv.ParseUint(u.Gid, 10, 32)
+	gid, err := strconv.ParseUint(usr.Gid, 10, 32)
 	if err != nil {
 		return nil, err
 	}
@@ -37,12 +37,12 @@ func LookupUser(username string) (*UserInfo, error) {
 	info := &UserInfo{
 		Uid:     uint32(uid),
 		Gid:     uint32(gid),
-		HomeDir: u.HomeDir,
+		HomeDir: usr.HomeDir,
 		Shell:   shellFor(username),
 	}
 
 	info.Groups = append(info.Groups, uint32(gid))
-	gids, err := u.GroupIds()
+	gids, err := usr.GroupIds()
 	if err == nil {
 		for _, g := range gids {
 			if v, err := strconv.ParseUint(g, 10, 32); err == nil {
@@ -71,22 +71,23 @@ func CurrentTTY() (ttyPath string, isTTY bool, err error) {
 func shellFor(username string) string {
 	fallback := "/bin/sh"
 
-	f, err := os.Open("/etc/passwd")
+	file, err := os.Open("/etc/passwd")
 	if err != nil {
 		return fallback
 	}
-	defer f.Close()
+	defer file.Close()
 
-	s := bufio.NewScanner(f)
-	if err := s.Err(); err != nil {
-		return fallback
-	}
+	scanner := bufio.NewScanner(file)
 
-	for s.Scan() {
-		parts := strings.Split(s.Text(), ":")
+	for scanner.Scan() {
+		parts := strings.Split(scanner.Text(), ":")
 		if len(parts) > 6 && parts[0] == username {
 			return parts[6]
 		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return fallback
 	}
 
 	return fallback
