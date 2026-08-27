@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	auth "github.com/r4ppz/minidm/internal"
 	session "github.com/r4ppz/minidm/internal"
@@ -37,6 +38,7 @@ func main() {
 			}
 		}
 
+		time.Sleep(1 * time.Second)
 		fmt.Print("\033[2J\033[3J\033[H") // clear term
 		fmt.Printf("\nWelcome! :0\n")
 
