@@ -7,7 +7,7 @@ import (
 	"github.com/msteinert/pam/v2"
 )
 
-func Login(user string, password string) error {
+func Login(user string, password string, sess Session) error {
 	handler := func(s pam.Style, msg string) (string, error) {
 		switch s {
 		case pam.PromptEchoOff:
@@ -65,5 +65,5 @@ func Login(user string, password string) error {
 		return err
 	}
 
-	return RunSession(user, env)
+	return RunSession(user, sess, env)
 }

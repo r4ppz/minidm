@@ -5,10 +5,12 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"syscall"
 
 	auth "github.com/r4ppz/minidm/internal"
+	session "github.com/r4ppz/minidm/internal"
 	"golang.org/x/sys/unix"
 )
 
@@ -22,13 +24,48 @@ func main() {
 	var lastErr string
 
 	for {
+		sessions, err := session.DiscoverSessions()
+		if err != nil || len(sessions) == 0 {
+			sessions = []session.Session{
+				{
+					ID:          "shell",
+					Name:        "Default Shell",
+					Exec:        "/bin/bash",
+					DesktopName: "Shell",
+					Type:        session.SessionWayland,
+				},
+			}
+		}
+
 		fmt.Print("\033[2J\033[3J\033[H") // clear term
 		fmt.Printf("\nWelcome! :0\n")
+
+		fmt.Println("\nAvailable Sessions:")
+		for i, s := range sessions {
+			fmt.Printf("[%d] %s (%s)\n", i+1, s.Name, s.Type)
+		}
+
+		selectedIndex := 0
+		if len(sessions) > 1 {
+			fmt.Printf("\nSelect Session [default: 1]: ")
+			input, _ := readLine(reader)
+			if input != "" {
+				if idx, err := strconv.Atoi(input); err == nil && idx >= 1 && idx <= len(sessions) {
+					selectedIndex = idx - 1
+				} else {
+					lastErr = "Invalid session choice"
+					continue
+				}
+			}
+		}
+		selectedSession := sessions[selectedIndex]
 
 		if lastErr != "" {
 			fmt.Fprintln(os.Stderr, lastErr)
 			lastErr = ""
 		}
+
+		fmt.Printf("\nSelected Session: %s\n", selectedSession.Name)
 
 		fmt.Print("\nUsername: ")
 		username, err := readLine(reader)
@@ -52,7 +89,7 @@ func main() {
 
 		fmt.Println()
 
-		if err := auth.Login(username, password); err != nil {
+		if err := auth.Login(username, password, selectedSession); err != nil {
 			lastErr = err.Error()
 			continue
 		}
