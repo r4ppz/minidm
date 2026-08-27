@@ -1,7 +1,8 @@
 BINARY := minidm
 BIN_DIR := bin
+PREFIX ?= /usr
 
-.PHONY: build run clean fmt fmt-check vet test staticcheck lint install
+.PHONY: build run clean fmt fmt-check vet test staticcheck lint install package
 
 all: build
 
@@ -29,7 +30,11 @@ staticcheck:
 
 lint: fmt-check vet staticcheck
 
-install:
+install: build
+	install -Dm755 $(BIN_DIR)/$(BINARY) $(DESTDIR)$(PREFIX)/bin/$(BINARY)
+	install -Dm644 package/$(BINARY).service $(DESTDIR)/usr/lib/systemd/system/$(BINARY).service
+
+package:
 	@set -e; \
 	TMPDIR=$$(mktemp -d); \
 	cp package/PKGBUILD "$$TMPDIR/"; \
