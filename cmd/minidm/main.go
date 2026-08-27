@@ -25,7 +25,7 @@ func main() {
 		clearScreen()
 
 		if lastErr != "" {
-			fmt.Printf("Error: %s\n\n", lastErr)
+			fmt.Print(lastErr)
 			lastErr = ""
 		}
 
@@ -43,7 +43,7 @@ func main() {
 		}
 
 		if err := minidm.Login(username, password, selectedSession); err != nil {
-			lastErr = fmt.Sprintf("Authentication failed: %v", err)
+			lastErr = err.Error()
 		}
 	}
 }
