@@ -27,35 +27,38 @@ func Login(user string, password string) error {
 
 	tx, err := pam.StartFunc("login", user, handler)
 	if err != nil {
-		return err
+		return fmt.Errorf("pam start failed: %w", err)
 	}
-
 	defer tx.End()
-	defer tx.CloseSession(0)
-	defer tx.SetCred(pam.DeleteCred)
 
 	tty, ok, err := CurrentTTY()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get current tty: %w", err)
 	}
 
 	if ok && tty != "" {
 		if err := tx.SetItem(pam.Tty, tty); err != nil {
-			return err
+			return fmt.Errorf("failed to set tty: %w", err)
 		}
 	}
 
 	if err := tx.Authenticate(0); err != nil {
-		return err
+		return fmt.Errorf("authentication failed: %w", err)
 	}
 
 	if err := tx.AcctMgmt(0); err != nil {
-		return err
+		return fmt.Errorf("account management check failed: %w", err)
 	}
 
-	if err := tx.OpenSession(0); err != nil {
-		return err
+	if err := tx.SetCred(pam.EstablishCred); err != nil {
+		return fmt.Errorf("failed to establish credentials: %w", err)
 	}
+	defer tx.SetCred(pam.DeleteCred)
+
+	if err := tx.OpenSession(0); err != nil {
+		return fmt.Errorf("failed to open session: %w", err)
+	}
+	defer tx.CloseSession(0)
 
 	env, err := tx.GetEnvList()
 	if err != nil {
