@@ -7,14 +7,18 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
-	minidm "github.com/r4ppz/minidm/internal"
+	internal "github.com/r4ppz/minidm/internal"
 	"golang.org/x/term"
 )
 
 func main() {
+	time.Sleep(500 * time.Millisecond)
+	clearScreen()
+
 	if os.Getuid() != 0 {
-		fmt.Fprintln(os.Stderr, "Error: minidm must be run as root")
+		fmt.Fprintln(os.Stderr, "minidm must be run as root")
 		os.Exit(1)
 	}
 
@@ -25,7 +29,7 @@ func main() {
 		clearScreen()
 
 		if lastErr != "" {
-			fmt.Print(lastErr)
+			fmt.Printf("%s\n", lastErr)
 			lastErr = ""
 		}
 
@@ -42,35 +46,31 @@ func main() {
 			continue
 		}
 
-		if err := minidm.Login(username, password, selectedSession); err != nil {
+		if err := internal.Login(username, password, selectedSession); err != nil {
 			lastErr = err.Error()
 		}
 	}
 }
 
-func clearScreen() {
-	fmt.Print("\033[2J\033[3J\033[H")
-}
-
-func loadSessions() []minidm.Session {
-	sessions, err := minidm.DiscoverSessions()
+func loadSessions() []internal.Session {
+	sessions, err := internal.DiscoverSessions()
 	if err == nil && len(sessions) > 0 {
 		return sessions
 	}
 
-	return []minidm.Session{
+	return []internal.Session{
 		{
 			ID:          "shell",
 			Name:        "Default Shell",
 			Exec:        "/bin/bash",
 			DesktopName: "Shell",
-			Type:        minidm.SessionWayland,
+			Type:        internal.SessionWayland,
 		},
 	}
 }
 
-func selectSession(r *bufio.Reader, sessions []minidm.Session) (minidm.Session, error) {
-	fmt.Println("Welcome!")
+func selectSession(reader *bufio.Reader, sessions []internal.Session) (internal.Session, error) {
+	fmt.Println("\nWelcome!")
 	fmt.Println("\nAvailable Sessions:")
 	for i, s := range sessions {
 		fmt.Printf("[%d] %s (%s)\n", i+1, s.Name, s.Type)
@@ -80,10 +80,10 @@ func selectSession(r *bufio.Reader, sessions []minidm.Session) (minidm.Session, 
 		return sessions[0], nil
 	}
 
-	fmt.Printf("\nSelect Session [default: 1]: ")
-	input, err := readLine(r)
+	fmt.Printf("\nSelect Session: ")
+	input, err := readLine(reader)
 	if err != nil {
-		return minidm.Session{}, fmt.Errorf("failed to read session choice: %w", err)
+		return internal.Session{}, fmt.Errorf("failed to read session choice: %w", err)
 	}
 
 	if input == "" {
@@ -92,7 +92,7 @@ func selectSession(r *bufio.Reader, sessions []minidm.Session) (minidm.Session, 
 
 	idx, err := strconv.Atoi(input)
 	if err != nil || idx < 1 || idx > len(sessions) {
-		return minidm.Session{}, fmt.Errorf("invalid session choice '%s'", input)
+		return internal.Session{}, fmt.Errorf("invalid session choice '%s'", input)
 	}
 
 	return sessions[idx-1], nil
@@ -129,4 +129,12 @@ func readLine(r *bufio.Reader) (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(line), nil
+}
+
+func clearScreen() {
+	// \033c: Hardware reset (RIS)
+	// \033[2J: Erase visible screen
+	// \033[3J: Erase scrollback buffer
+	// \033[H: Cursor to row 1, col 1
+	fmt.Print("\033c\033[2J\033[3J\033[H")
 }
