@@ -1,11 +1,11 @@
-package minidm
+package session
 
 import (
 	"os"
 	"testing"
 )
 
-func TestParseDesktopExec(t *testing.T) {
+func TestParseExec(t *testing.T) {
 	tests := []struct {
 		name string
 		in   string
@@ -85,7 +85,7 @@ func TestParseDesktopExec(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := parseDesktopExec(tc.in)
+			got := ParseExec(tc.in)
 			if len(got) != len(tc.want) {
 				t.Fatalf("len: got %d (%v), want %d (%v)", len(got), got, len(tc.want), tc.want)
 			}
@@ -114,7 +114,7 @@ Name=Ignore Me
 		t.Fatal(err)
 	}
 
-	sess, err := parseDesktopFile(tmp, SessionWayland)
+	sess, err := parseDesktopFile(tmp, Wayland)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ Name=Ignore Me
 	if sess.DesktopName != "sway" {
 		t.Errorf("DesktopName: got %q, want %q", sess.DesktopName, "sway")
 	}
-	if sess.Type != SessionWayland {
-		t.Errorf("Type: got %q, want %q", sess.Type, SessionWayland)
+	if sess.Type != Wayland {
+		t.Errorf("Type: got %q, want %q", sess.Type, Wayland)
 	}
 }

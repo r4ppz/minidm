@@ -1,18 +1,18 @@
-package minidm
+package log
 
 import (
-	"log"
+	stdlog "log"
 	"os"
 )
 
 var (
 	debugMode bool
-	logger    *log.Logger
+	logger    *stdlog.Logger
 )
 
 func init() {
 	debugMode = os.Getenv("MINIDM_DEBUG") == "1"
-	logger = log.New(os.Stderr, "", log.LstdFlags|log.Lshortfile)
+	logger = stdlog.New(os.Stderr, "", stdlog.LstdFlags|stdlog.Lshortfile)
 }
 
 func Debugf(format string, args ...any) {

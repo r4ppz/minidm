@@ -6,7 +6,9 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/msteinert/pam/v2"
-	minidm "github.com/r4ppz/minidm/internal"
+	"github.com/r4ppz/minidm/internal/auth"
+	"github.com/r4ppz/minidm/internal/log"
+	"github.com/r4ppz/minidm/internal/session"
 )
 
 type Model struct {
@@ -16,11 +18,11 @@ type Model struct {
 
 	authenticated        bool
 	authenticatedUser    string
-	authenticatedSession minidm.Session
+	authenticatedSession session.Session
 	pamTx                *pam.Transaction
 }
 
-func NewModel(sessions []minidm.Session) Model {
+func NewModel(sessions []session.Session) Model {
 	spin := spinner.New()
 	spin.Spinner = spinner.Dot
 	spin.Style = SpinnerStyle
@@ -44,7 +46,7 @@ func (model Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case CredentialSubmitMsg:
-		minidm.Infof("Login attempt: %s", msg.Username)
+		log.Infof("Login attempt: %s", msg.Username)
 		selectedSession := model.sessionList.SelectedSession()
 		return model, tea.Batch(
 			authenticate(msg.Username, msg.Password, selectedSession),
@@ -53,19 +55,19 @@ func (model Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case AuthResultMsg:
 		if msg.Err != nil {
-			var authErr *minidm.AuthError
+			var authErr *auth.Error
 			var userMsg string
 			if errors.As(msg.Err, &authErr) {
 				userMsg = authErr.Message
 			} else {
 				userMsg = "Authentication failed"
 			}
-			minidm.Errorf("Auth failed for %s: %v", msg.Username, msg.Err)
+			log.Errorf("Auth failed for %s: %v", msg.Username, msg.Err)
 			model.credentialInput.SetError(userMsg)
 			model.credentialInput.ClearPassword()
 			model.credentialInput.ClearSubmitting()
 		} else {
-			minidm.Infof("Auth success: %s", msg.Username)
+			log.Infof("Auth success: %s", msg.Username)
 			model.authenticated = true
 			model.authenticatedUser = msg.Username
 			model.authenticatedSession = msg.Session
@@ -100,17 +102,17 @@ func (model Model) View() string {
 	return model.sessionList.View() + "\n\n" + model.credentialInput.View()
 }
 
-func authenticate(username string, password string, session minidm.Session) tea.Cmd {
+func authenticate(username, password string, sess session.Session) tea.Cmd {
 	return func() tea.Msg {
-		tx, err := minidm.Authenticate(username, password)
+		tx, err := auth.Authenticate(username, password)
 		if err != nil {
-			return AuthResultMsg{Err: err, Username: username, Session: session}
+			return AuthResultMsg{Err: err, Username: username, Session: sess}
 		}
-		return AuthResultMsg{PAMTx: tx, Username: username, Session: session}
+		return AuthResultMsg{PAMTx: tx, Username: username, Session: sess}
 	}
 }
 
-func (model Model) Authenticated() bool                  { return model.authenticated }
-func (model Model) AuthenticatedUser() string            { return model.authenticatedUser }
-func (model Model) AuthenticatedSession() minidm.Session { return model.authenticatedSession }
-func (model Model) PAMTx() *pam.Transaction              { return model.pamTx }
+func (model Model) Authenticated() bool                   { return model.authenticated }
+func (model Model) AuthenticatedUser() string             { return model.authenticatedUser }
+func (model Model) AuthenticatedSession() session.Session { return model.authenticatedSession }
+func (model Model) PAMTx() *pam.Transaction               { return model.pamTx }

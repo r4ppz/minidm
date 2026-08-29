@@ -5,15 +5,15 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
-	minidm "github.com/r4ppz/minidm/internal"
+	"github.com/r4ppz/minidm/internal/session"
 )
 
 type SessionListModel struct {
-	sessions    []minidm.Session
+	sessions    []session.Session
 	selectedIdx int
 }
 
-func NewSessionListModel(sessions []minidm.Session) SessionListModel {
+func NewSessionListModel(sessions []session.Session) SessionListModel {
 	return SessionListModel{
 		sessions:    sessions,
 		selectedIdx: 0,
@@ -99,14 +99,14 @@ func (m SessionListModel) prevSession() SessionListModel {
 	return m
 }
 
-func (m SessionListModel) SelectedSession() minidm.Session {
+func (m SessionListModel) SelectedSession() session.Session {
 	if len(m.sessions) > 0 && m.selectedIdx < len(m.sessions) {
 		return m.sessions[m.selectedIdx]
 	}
-	return minidm.Session{}
+	return session.Session{}
 }
 
-func (m SessionListModel) SetSessions(sessions []minidm.Session) SessionListModel {
+func (m SessionListModel) SetSessions(sessions []session.Session) SessionListModel {
 	m.sessions = sessions
 	if m.selectedIdx >= len(m.sessions) {
 		if len(m.sessions) > 0 {

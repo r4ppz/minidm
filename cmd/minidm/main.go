@@ -6,15 +6,17 @@ import (
 	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
-	minidm "github.com/r4ppz/minidm/internal"
+	"github.com/r4ppz/minidm/internal/auth"
+	"github.com/r4ppz/minidm/internal/log"
+	"github.com/r4ppz/minidm/internal/session"
 	"github.com/r4ppz/minidm/internal/ui"
 )
 
 func main() {
-	sessions := minidm.DiscoverSessions()
+	sessions := session.Discover()
 
 	if len(sessions) == 0 {
-		minidm.Errorf("No sessions found")
+		log.Errorf("No sessions found")
 		os.Exit(1)
 	}
 
@@ -22,7 +24,7 @@ func main() {
 	signal.Notify(sigCh, syscall.SIGTERM)
 	go func() {
 		<-sigCh
-		minidm.Infof("Received SIGTERM, shutting down")
+		log.Infof("Received SIGTERM, shutting down")
 		os.Exit(0)
 	}()
 
@@ -31,7 +33,7 @@ func main() {
 
 	result, err := p.Run()
 	if err != nil {
-		minidm.Errorf("TUI error: %v", err)
+		log.Errorf("TUI error: %v", err)
 		os.Exit(1)
 	}
 
@@ -41,10 +43,10 @@ func main() {
 		return
 	}
 
-	minidm.Infof("Launching session %s for user %s", final.AuthenticatedSession().Name, final.AuthenticatedUser())
+	log.Infof("Launching session %s for user %s", final.AuthenticatedSession().Name, final.AuthenticatedUser())
 
-	if err := minidm.RunSession(final.AuthenticatedUser(), final.AuthenticatedSession(), final.PAMTx()); err != nil {
-		minidm.Errorf("Session error: %v", err)
+	if err := auth.RunSession(final.AuthenticatedUser(), final.AuthenticatedSession(), final.PAMTx()); err != nil {
+		log.Errorf("Session error: %v", err)
 		os.Exit(1)
 	}
 }
