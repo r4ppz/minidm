@@ -7,7 +7,7 @@ import (
 	"github.com/msteinert/pam/v2"
 )
 
-func Authenticate(user string, password string, session Session) (*pam.Transaction, error) {
+func Authenticate(user string, password string) (*pam.Transaction, error) {
 	Infof("Authenticating user: %s", user)
 
 	var pamErrMsg string

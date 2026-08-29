@@ -10,8 +10,6 @@ import (
 	"github.com/r4ppz/minidm/internal/ui"
 )
 
-var sessionProc *os.Process
-
 func main() {
 	sessions := minidm.DiscoverSessions()
 
@@ -25,9 +23,6 @@ func main() {
 	go func() {
 		<-sigCh
 		minidm.Infof("Received SIGTERM, shutting down")
-		if sessionProc != nil {
-			sessionProc.Signal(syscall.SIGTERM)
-		}
 		os.Exit(0)
 	}()
 
@@ -48,10 +43,8 @@ func main() {
 
 	minidm.Infof("Launching session %s for user %s", final.AuthenticatedSession().Name, final.AuthenticatedUser())
 
-	proc, err := minidm.RunSession(final.AuthenticatedUser(), final.AuthenticatedSession(), final.PAMTx())
-	if err != nil {
+	if err := minidm.RunSession(final.AuthenticatedUser(), final.AuthenticatedSession(), final.PAMTx()); err != nil {
 		minidm.Errorf("Session error: %v", err)
 		os.Exit(1)
 	}
-	sessionProc = proc
 }

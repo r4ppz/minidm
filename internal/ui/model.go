@@ -102,7 +102,7 @@ func (model Model) View() string {
 
 func authenticate(username string, password string, session minidm.Session) tea.Cmd {
 	return func() tea.Msg {
-		tx, err := minidm.Authenticate(username, password, session)
+		tx, err := minidm.Authenticate(username, password)
 		if err != nil {
 			return AuthResultMsg{Err: err, Username: username, Session: session}
 		}
