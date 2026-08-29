@@ -115,6 +115,8 @@ func parseDesktopFile(path string, sessionType SessionType) (Session, error) {
 func RunSession(user string, session Session, tx *pam.Transaction) (*os.Process, error) {
 	Infof("Starting session %s for user %s", session.Name, user)
 
+	defer tx.End()
+
 	userInfo, err := LookupUser(user)
 	if err != nil {
 		Errorf("Lookup user %s: %v", user, err)
@@ -133,7 +135,6 @@ func RunSession(user string, session Session, tx *pam.Transaction) (*os.Process,
 		Errorf("PAM open session for %s: %v", user, err)
 		return nil, err
 	}
-	defer tx.End()
 	defer tx.SetCred(pam.DeleteCred)
 	defer tx.CloseSession(0)
 
