@@ -160,6 +160,10 @@ func (m CredentialInputModel) View() string {
 		viewContent += "\n" + ErrorStyle.Render(m.errMsg)
 	}
 
+	if m.submitting {
+		return viewContent
+	}
+
 	viewContent += "\n" + HelpStyle.Render(
 		credentialInputKeys.prev.Help().Key+" "+credentialInputKeys.prev.Help().Desc,
 		credentialInputKeys.next.Help().Key+" "+credentialInputKeys.next.Help().Desc,
@@ -167,6 +171,10 @@ func (m CredentialInputModel) View() string {
 	)
 
 	return viewContent
+}
+
+func (m CredentialInputModel) Submitting() bool {
+	return m.submitting
 }
 
 func (m CredentialInputModel) SetError(err string) CredentialInputModel {

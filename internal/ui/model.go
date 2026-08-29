@@ -87,10 +87,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-	if m.authenticated {
-		return m.spinner.View() + " Starting session..."
+	view := m.sessionList.View() + "\n\n" + m.credentialInput.View()
+
+	if m.credentialInput.Submitting() {
+		view += "\n" + m.spinner.View() + " Authenticating..."
+	} else if m.authenticated {
+		view += "\n" + m.spinner.View() + " Starting session..."
 	}
-	return m.sessionList.View() + "\n\n" + m.credentialInput.View()
+
+	return view
 }
 
 func authenticate(username, password string, sess session.Session) tea.Cmd {
