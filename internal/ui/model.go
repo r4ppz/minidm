@@ -105,8 +105,6 @@ func authenticate(username, password string, sess session.Session) tea.Cmd {
 	}
 }
 
-// errorMessage extracts the user-facing message from an auth error, falling
-// back to a generic message for unexpected errors.
 func errorMessage(err error) string {
 	var authErr *auth.Error
 	if errors.As(err, &authErr) {

@@ -43,8 +43,7 @@ func Lookup(username string) (*Info, error) {
 	}
 
 	info.Groups = append(info.Groups, uint32(gid))
-	groupIDs, err := osUser.GroupIds()
-	if err == nil {
+	if groupIDs, err := osUser.GroupIds(); err == nil {
 		for _, gidStr := range groupIDs {
 			if parsed, err := strconv.ParseUint(gidStr, 10, 32); err == nil {
 				info.Groups = append(info.Groups, uint32(parsed))
@@ -61,8 +60,6 @@ func Lookup(username string) (*Info, error) {
 	return info, nil
 }
 
-// CurrentTTY returns the TTY path of stdin. If stdin is not a terminal,
-// isTTY is false and the path is empty.
 func CurrentTTY() (path string, isTTY bool, err error) {
 	fd := int(os.Stdin.Fd())
 	if !term.IsTerminal(fd) {

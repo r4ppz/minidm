@@ -7,7 +7,6 @@ import (
 	"github.com/msteinert/pam/v2"
 )
 
-// Error wraps a user-facing message around an underlying error.
 type Error struct {
 	Message string
 	Err     error
@@ -22,8 +21,6 @@ func (e *Error) Error() string {
 
 func (e *Error) Unwrap() error { return e.Err }
 
-// wrapError attaches a user-facing message to err. If err is already an
-// *Error, it is returned unchanged so the original classification survives.
 func wrapError(message string, err error) error {
 	if err == nil {
 		return nil
@@ -35,7 +32,6 @@ func wrapError(message string, err error) error {
 	return &Error{Message: message, Err: err}
 }
 
-// classifyPAMError maps a PAM error code to a user-facing message.
 func classifyPAMError(err error) error {
 	var pamErr pam.Error
 	if errors.As(err, &pamErr) {

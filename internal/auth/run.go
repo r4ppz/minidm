@@ -13,9 +13,6 @@ import (
 	"github.com/r4ppz/minidm/internal/user"
 )
 
-// RunSession completes the PAM session lifecycle and blocks until the desktop
-// exits. It owns cleanup (close session, delete credentials, end transaction)
-// so every return path is balanced even on error.
 func RunSession(username string, sess session.Session, tx *pam.Transaction) (err error) {
 	log.Info("starting session", "session", sess.Name, "user", username)
 
@@ -98,8 +95,6 @@ func RunSession(username string, sess session.Session, tx *pam.Transaction) (err
 	return nil
 }
 
-// setSessionMetadata puts XDG session metadata into the PAM environment before
-// OpenSession runs, so pam_systemd can see it when creating the session.
 func setSessionMetadata(tx *pam.Transaction, sess session.Session) error {
 	seat := os.Getenv("XDG_SEAT")
 	if seat == "" {
@@ -123,8 +118,6 @@ func setSessionMetadata(tx *pam.Transaction, sess session.Session) error {
 	return nil
 }
 
-// buildEnv constructs the final environment. PAM-supplied values (such as
-// XDG_RUNTIME_DIR from pam_systemd) take precedence over our defaults.
 func buildEnv(username string, info *user.Info, pamEnv map[string]string) []string {
 	env := map[string]string{
 		"HOME":    info.HomeDir,

@@ -9,9 +9,6 @@ import (
 	"github.com/r4ppz/minidm/internal/user"
 )
 
-// Authenticate performs PAM authentication, account management, and credential
-// establishment. The returned transaction must be passed to RunSession to
-// complete the PAM lifecycle.
 func Authenticate(username, password string) (tx *pam.Transaction, err error) {
 	log.Info("authenticating user", "user", username)
 
@@ -70,7 +67,6 @@ func Authenticate(username, password string) (tx *pam.Transaction, err error) {
 	return tx, nil
 }
 
-// IsAuthError reports whether err originated from Authenticate.
 func IsAuthError(err error) bool {
 	var target *Error
 	return errors.As(err, &target)

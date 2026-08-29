@@ -2,32 +2,28 @@ package session
 
 import "strings"
 
-// ParseExec parses a .desktop Exec value into an argv list following the
-// freedesktop.org Desktop Entry Specification.
-//
-// Whitespace separates arguments unless quoted. Single quotes preserve their
-// content literally. Double quotes preserve their content except that a
-// backslash may escape the special characters (" $ ` \). A backslash outside
-// quotes escapes the next character. Field codes such as %f or %U are
-// removed, since a session launcher provides no files or URIs; a literal
-// percent sign is written as %%.
+// ParseExec parses a .desktop Exec value into an argv list per the
+// freedesktop.org Desktop Entry Specification. Field codes (%f, %U, etc.)
+// are dropped since a session launcher provides no files or URIs.
 func ParseExec(s string) []string {
 	var args []string
 	var cur strings.Builder
 	var inSingle, inDouble bool
-	hasArg := false
+	hasToken := false
 
 	flush := func() {
-		if hasArg || cur.Len() > 0 {
+		if hasToken || cur.Len() > 0 {
 			args = append(args, cur.String())
 			cur.Reset()
-			hasArg = false
+			hasToken = false
 		}
 	}
 
 	runes := []rune(s)
-	for i := 0; i < len(runes); i++ {
+	i := 0
+	for i < len(runes) {
 		r := runes[i]
+
 		switch {
 		case inSingle:
 			if r == '\'' {
@@ -41,28 +37,9 @@ func ParseExec(s string) []string {
 			case '"':
 				inDouble = false
 			case '\\':
-				if i+1 < len(runes) {
-					next := runes[i+1]
-					switch next {
-					case '"', '$', '`', '\\':
-						cur.WriteRune(next)
-						i++
-					default:
-						cur.WriteRune(r)
-					}
-				} else {
-					cur.WriteRune(r)
-				}
+				i = escapeInDouble(runes, i, &cur)
 			case '%':
-				if i+1 < len(runes) {
-					next := runes[i+1]
-					if next == '%' {
-						cur.WriteRune('%')
-						i++
-					} else {
-						i++
-					}
-				}
+				i = handleFieldCode(runes, i, &cur)
 			default:
 				cur.WriteRune(r)
 			}
@@ -73,32 +50,57 @@ func ParseExec(s string) []string {
 				flush()
 			case '\'':
 				inSingle = true
-				hasArg = true
+				hasToken = true
 			case '"':
 				inDouble = true
-				hasArg = true
+				hasToken = true
 			case '\\':
-				if i+1 < len(runes) {
-					cur.WriteRune(runes[i+1])
-					i++
-				} else {
-					cur.WriteRune(r)
-				}
+				i = escapeRaw(runes, i, &cur)
 			case '%':
-				if i+1 < len(runes) {
-					next := runes[i+1]
-					if next == '%' {
-						cur.WriteRune('%')
-						i++
-					} else {
-						i++
-					}
-				}
+				i = handleFieldCode(runes, i, &cur)
 			default:
 				cur.WriteRune(r)
 			}
 		}
+		i++
 	}
 	flush()
 	return args
+}
+
+// Only " $ ` \ are unescaped inside double quotes; any other char after
+// backslash is kept literally.
+func escapeInDouble(runes []rune, i int, cur *strings.Builder) int {
+	if i+1 >= len(runes) {
+		cur.WriteRune(runes[i])
+		return i
+	}
+	next := runes[i+1]
+	switch next {
+	case '"', '$', '`', '\\':
+		cur.WriteRune(next)
+	default:
+		cur.WriteRune(runes[i])
+	}
+	return i + 1
+}
+
+func escapeRaw(runes []rune, i int, cur *strings.Builder) int {
+	if i+1 >= len(runes) {
+		cur.WriteRune(runes[i])
+		return i
+	}
+	cur.WriteRune(runes[i+1])
+	return i + 1
+}
+
+// %% produces a literal percent; any other field code is dropped.
+func handleFieldCode(runes []rune, i int, cur *strings.Builder) int {
+	if i+1 >= len(runes) {
+		return i
+	}
+	if runes[i+1] == '%' {
+		cur.WriteRune('%')
+	}
+	return i + 1
 }
