@@ -22,7 +22,8 @@ StandardOutput=tty
 StandardError=journal
 
 User=root
-CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_AUDIT_WRITE CAP_CHOWN
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_AUDIT_WRITE CAP_AUDIT_CONTROL CAP_CHOWN
 
 Environment=XDG_SEAT=seat0
 Environment=XDG_VTNR=1

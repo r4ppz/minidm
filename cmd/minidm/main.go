@@ -34,6 +34,14 @@ func run() error {
 		os.Exit(0)
 	}()
 
+	for {
+		if err := loginLoop(sessions); err != nil {
+			return err
+		}
+	}
+}
+
+func loginLoop(sessions []session.Session) error {
 	model := ui.NewModel(sessions)
 	p := tea.NewProgram(model, tea.WithAltScreen())
 
@@ -54,5 +62,8 @@ func run() error {
 		"session", final.AuthenticatedSession().Name,
 		"user", final.AuthenticatedUser())
 
-	return auth.RunSession(final.AuthenticatedUser(), final.AuthenticatedSession(), final.PAMTx())
+	if err := auth.RunSession(final.AuthenticatedUser(), final.AuthenticatedSession(), final.PAMTx()); err != nil {
+		log.Error("session failed", "err", err)
+	}
+	return nil
 }

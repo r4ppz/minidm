@@ -63,7 +63,6 @@ func Authenticate(username, password string) (tx *pam.Transaction, err error) {
 		return
 	}
 
-	log.Info("auth success", "user", username)
 	return tx, nil
 }
 

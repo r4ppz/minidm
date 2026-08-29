@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/msteinert/pam/v2"
@@ -52,8 +53,15 @@ func RunSession(username string, sess session.Session, tx *pam.Transaction) (err
 		return fmt.Errorf("empty Exec for session %s", sess.ID)
 	}
 
-	cmd := exec.Command(argv[0], argv[1:]...)
-	cmd.Env = buildEnv(username, info, pamEnv)
+	env := buildEnv(username, info, sess, pamEnv)
+
+	binary, err := lookPath(argv[0], env)
+	if err != nil {
+		return fmt.Errorf("find %s: %w", argv[0], err)
+	}
+
+	cmd := exec.Command(binary, argv[1:]...)
+	cmd.Env = env
 	cmd.Dir = info.HomeDir
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setsid: true,
@@ -118,7 +126,7 @@ func setSessionMetadata(tx *pam.Transaction, sess session.Session) error {
 	return nil
 }
 
-func buildEnv(username string, info *user.Info, pamEnv map[string]string) []string {
+func buildEnv(username string, info *user.Info, sess session.Session, pamEnv map[string]string) []string {
 	env := map[string]string{
 		"HOME":    info.HomeDir,
 		"USER":    username,
@@ -129,9 +137,53 @@ func buildEnv(username string, info *user.Info, pamEnv map[string]string) []stri
 	for k, v := range pamEnv {
 		env[k] = v
 	}
+
+	// Re-apply session metadata after PAM env, since pam_systemd may
+	// override XDG_SESSION_TYPE with "tty" regardless of what we set.
+	env["XDG_SESSION_TYPE"] = string(sess.Type)
+	env["XDG_SESSION_DESKTOP"] = sess.ID
+	env["XDG_CURRENT_DESKTOP"] = sess.DesktopName
+	env["XDG_SESSION_CLASS"] = "user"
+
+	seat := os.Getenv("XDG_SEAT")
+	if seat == "" {
+		seat = "seat0"
+	}
+	env["XDG_SEAT"] = seat
+	if vtnr := os.Getenv("XDG_VTNR"); vtnr != "" {
+		env["XDG_VTNR"] = vtnr
+	}
+
 	out := make([]string, 0, len(env))
 	for k, v := range env {
 		out = append(out, k+"="+v)
 	}
 	return out
+}
+
+// lookPath resolves a binary using the PATH from env, since exec.LookPath
+// uses the current process's PATH, not cmd.Env.
+func lookPath(binary string, env []string) (string, error) {
+	if strings.ContainsRune(binary, '/') {
+		return binary, nil
+	}
+
+	var path string
+	for _, e := range env {
+		if strings.HasPrefix(e, "PATH=") {
+			path = strings.TrimPrefix(e, "PATH=")
+			break
+		}
+	}
+	if path == "" {
+		return binary, nil
+	}
+
+	for _, dir := range strings.Split(path, ":") {
+		candidate := dir + "/" + binary
+		if fi, err := os.Stat(candidate); err == nil && !fi.IsDir() {
+			return candidate, nil
+		}
+	}
+	return "", fmt.Errorf("%s: executable file not found in $PATH", binary)
 }
