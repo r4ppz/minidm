@@ -77,12 +77,18 @@ func (m CredentialInputModel) Update(msg tea.Msg) (CredentialInputModel, tea.Cmd
 			m.toggleFocus()
 		case key.Matches(msg, credentialInputKeys.enter):
 			if m.focusIndex == 0 {
-				if m.usernameInput.Value() != "" {
+				if m.usernameInput.Value() == "" {
+					m.errMsg = "Username required"
+				} else {
 					m.focusIndex = 1
 					m.updateFocus()
 				}
 			} else if m.focusIndex == 1 {
-				if !m.submitting && m.usernameInput.Value() != "" && m.passwordInput.Value() != "" {
+				if m.usernameInput.Value() == "" {
+					m.errMsg = "Username required"
+				} else if m.passwordInput.Value() == "" {
+					m.errMsg = "Password required"
+				} else if !m.submitting {
 					m.submitting = true
 					user := m.usernameInput.Value()
 					pass := m.passwordInput.Value()
@@ -148,6 +154,10 @@ func (m CredentialInputModel) View() string {
 func (m *CredentialInputModel) SetError(err string) {
 	m.errMsg = err
 	m.submitting = false
+}
+
+func (m *CredentialInputModel) ClearPassword() {
+	m.passwordInput.Reset()
 }
 
 func (m *CredentialInputModel) ClearSubmitting() {

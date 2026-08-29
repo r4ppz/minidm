@@ -9,8 +9,12 @@ ConditionPathExists=/dev/tty1
 [Service]
 Type=simple
 ExecStart=/usr/bin/minidm
+ExecStop=/bin/kill -TERM $MAINPID
 Restart=always
 RestartSec=1
+TimeoutStopSec=5
+
+KillMode=process
 
 TTYPath=/dev/tty1
 TTYReset=yes

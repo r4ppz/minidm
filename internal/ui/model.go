@@ -62,6 +62,7 @@ func (model Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			minidm.Errorf("Auth failed for %s: %v", msg.Username, msg.Err)
 			model.credentialInput.SetError(userMsg)
+			model.credentialInput.ClearPassword()
 			model.credentialInput.ClearSubmitting()
 		} else {
 			minidm.Infof("Auth success: %s", msg.Username)
@@ -102,7 +103,10 @@ func (model Model) View() string {
 func authenticate(username string, password string, session minidm.Session) tea.Cmd {
 	return func() tea.Msg {
 		tx, err := minidm.Authenticate(username, password, session)
-		return AuthResultMsg{Err: err, Username: username, PAMTx: tx, Session: session}
+		if err != nil {
+			return AuthResultMsg{Err: err, Username: username, Session: session}
+		}
+		return AuthResultMsg{PAMTx: tx, Username: username, Session: session}
 	}
 }
 

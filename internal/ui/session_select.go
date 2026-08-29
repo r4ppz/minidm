@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"fmt"
+
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	minidm "github.com/r4ppz/minidm/internal"
@@ -57,7 +59,11 @@ func (m SessionListModel) View() string {
 	}
 
 	var viewContent string
-	viewContent += "Session:\n"
+	if len(m.sessions) == 1 {
+		viewContent += "Session:\n"
+	} else {
+		viewContent += fmt.Sprintf("Sessions (%d):\n", len(m.sessions))
+	}
 
 	for i, sess := range m.sessions {
 		prefix := "  "

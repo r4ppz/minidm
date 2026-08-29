@@ -27,7 +27,7 @@ type Session struct {
 	Type        SessionType
 }
 
-func DiscoverSessions() ([]Session, error) {
+func DiscoverSessions() []Session {
 	var sessions []Session
 
 	targets := []struct {
@@ -63,7 +63,7 @@ func DiscoverSessions() ([]Session, error) {
 	}
 
 	Infof("Discovered %d sessions", len(sessions))
-	return sessions, nil
+	return sessions
 }
 
 func parseDesktopFile(path string, sessionType SessionType) (Session, error) {
@@ -112,35 +112,35 @@ func parseDesktopFile(path string, sessionType SessionType) (Session, error) {
 	return session, scanner.Err()
 }
 
-func RunSession(user string, session Session, tx *pam.Transaction) error {
+func RunSession(user string, session Session, tx *pam.Transaction) (*os.Process, error) {
 	Infof("Starting session %s for user %s", session.Name, user)
 
 	userInfo, err := LookupUser(user)
 	if err != nil {
 		Errorf("Lookup user %s: %v", user, err)
-		return err
+		return nil, err
 	}
 
 	runtimeDir := "/run/user/" + strconv.FormatUint(uint64(userInfo.Uid), 10)
 	if err := os.MkdirAll(runtimeDir, 0700); err != nil {
 		Errorf("Create XDG_RUNTIME_DIR %s: %v", runtimeDir, err)
-		return err
+		return nil, err
 	} else if err := os.Chown(runtimeDir, int(userInfo.Uid), int(userInfo.Gid)); err != nil {
 		Errorf("Chown XDG_RUNTIME_DIR %s: %v", runtimeDir, err)
 	}
 
 	if err := tx.OpenSession(0); err != nil {
 		Errorf("PAM open session for %s: %v", user, err)
-		return err
+		return nil, err
 	}
-	defer tx.CloseSession(0)
-	defer tx.SetCred(pam.DeleteCred)
 	defer tx.End()
+	defer tx.SetCred(pam.DeleteCred)
+	defer tx.CloseSession(0)
 
 	pamEnv, err := tx.GetEnvList()
 	if err != nil {
 		Errorf("PAM get env for %s: %v", user, err)
-		return err
+		return nil, err
 	}
 
 	Infof("PAM env for %s: %v", user, pamEnv)
@@ -192,5 +192,5 @@ func RunSession(user string, session Session, tx *pam.Transaction) error {
 	if err != nil {
 		Errorf("Session %s for %s: %v", session.Name, user, err)
 	}
-	return err
+	return cmd.Process, err
 }
