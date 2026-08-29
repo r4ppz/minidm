@@ -3,30 +3,12 @@ package auth
 import (
 	"errors"
 	"fmt"
+
+	"github.com/msteinert/pam/v2"
 )
 
-type ErrorCode int
-
-const (
-	CodeAuthFailed ErrorCode = iota
-	CodeUserUnknown
-	CodeAccountLocked
-	CodeAccountExpired
-	CodePermissionDenied
-	CodeSystemError
-)
-
-var errorMessages = map[ErrorCode]string{
-	CodeAuthFailed:       "Invalid username or password",
-	CodeUserUnknown:      "User not found",
-	CodeAccountLocked:    "Account locked",
-	CodeAccountExpired:   "Account expired",
-	CodePermissionDenied: "Access denied",
-	CodeSystemError:      "Authentication service unavailable",
-}
-
+// Error wraps a user-facing message around an underlying error.
 type Error struct {
-	Code    ErrorCode
 	Message string
 	Err     error
 }
@@ -38,22 +20,35 @@ func (e *Error) Error() string {
 	return e.Message
 }
 
-func (e *Error) Unwrap() error {
-	return e.Err
+func (e *Error) Unwrap() error { return e.Err }
+
+// wrapError attaches a user-facing message to err. If err is already an
+// *Error, it is returned unchanged so the original classification survives.
+func wrapError(message string, err error) error {
+	if err == nil {
+		return nil
+	}
+	var e *Error
+	if errors.As(err, &e) {
+		return err
+	}
+	return &Error{Message: message, Err: err}
 }
 
-func (e *Error) Is(target error) bool {
-	var authErr *Error
-	if errors.As(target, &authErr) {
-		return e.Code == authErr.Code
+// classifyPAMError maps a PAM error code to a user-facing message.
+func classifyPAMError(err error) error {
+	var pamErr pam.Error
+	if errors.As(err, &pamErr) {
+		switch pamErr {
+		case pam.ErrAuth, pam.ErrCredInsufficient:
+			return &Error{Message: "Invalid username or password", Err: err}
+		case pam.ErrUserUnknown:
+			return &Error{Message: "User not found", Err: err}
+		case pam.ErrAcctExpired, pam.ErrCredExpired, pam.ErrAuthtokExpired:
+			return &Error{Message: "Account expired", Err: err}
+		case pam.ErrPermDenied:
+			return &Error{Message: "Access denied", Err: err}
+		}
 	}
-	return false
-}
-
-func newError(code ErrorCode, err error) *Error {
-	msg := errorMessages[code]
-	if msg == "" {
-		msg = errorMessages[CodeSystemError]
-	}
-	return &Error{Code: code, Message: msg, Err: err}
+	return &Error{Message: "Authentication service unavailable", Err: err}
 }

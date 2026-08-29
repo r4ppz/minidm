@@ -22,7 +22,7 @@ func Discover() []Session {
 	for _, t := range targets {
 		files, err := os.ReadDir(t.dir)
 		if err != nil {
-			log.Debugf("Session directory %s: %v", t.dir, err)
+			log.Debug("session directory unreadable", "dir", t.dir, "err", err)
 			continue
 		}
 		for _, file := range files {
@@ -32,7 +32,7 @@ func Discover() []Session {
 			path := filepath.Join(t.dir, file.Name())
 			sess, err := parseDesktopFile(path, t.typ)
 			if err != nil {
-				log.Debugf("Parse %s: %v", path, err)
+				log.Debug("parse session", "path", path, "err", err)
 				continue
 			}
 			if sess.Exec != "" {
@@ -41,6 +41,6 @@ func Discover() []Session {
 		}
 	}
 
-	log.Infof("Discovered %d sessions", len(sessions))
+	log.Info("sessions discovered", "count", len(sessions))
 	return sessions
 }

@@ -1,30 +1,22 @@
 package log
 
 import (
-	stdlog "log"
+	"log/slog"
 	"os"
 )
 
-var (
-	debugMode bool
-	logger    *stdlog.Logger
-)
+var logger *slog.Logger
 
 func init() {
-	debugMode = os.Getenv("MINIDM_DEBUG") == "1"
-	logger = stdlog.New(os.Stderr, "", stdlog.LstdFlags|stdlog.Lshortfile)
-}
-
-func Debugf(format string, args ...any) {
-	if debugMode {
-		logger.Printf("[DEBUG] "+format, args...)
+	level := slog.LevelInfo
+	if os.Getenv("MINIDM_DEBUG") == "1" {
+		level = slog.LevelDebug
 	}
+	logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: level,
+	}))
 }
 
-func Infof(format string, args ...any) {
-	logger.Printf("[INFO] "+format, args...)
-}
-
-func Errorf(format string, args ...any) {
-	logger.Printf("[ERROR] "+format, args...)
-}
+func Debug(msg string, args ...any) { logger.Debug(msg, args...) }
+func Info(msg string, args ...any)  { logger.Info(msg, args...) }
+func Error(msg string, args ...any) { logger.Error(msg, args...) }

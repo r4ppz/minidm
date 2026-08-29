@@ -2,12 +2,14 @@ package user
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	ouser "os/user"
 	"strconv"
 	"strings"
 
 	"github.com/r4ppz/minidm/internal/log"
+	"golang.org/x/term"
 )
 
 type Info struct {
@@ -19,22 +21,18 @@ type Info struct {
 }
 
 func Lookup(username string) (*Info, error) {
-	log.Debugf("Looking up user: %s", username)
 	osUser, err := ouser.Lookup(username)
 	if err != nil {
-		log.Errorf("Failed to lookup user %s: %v", username, err)
-		return nil, err
+		return nil, fmt.Errorf("lookup user: %w", err)
 	}
 
 	uid, err := strconv.ParseUint(osUser.Uid, 10, 32)
 	if err != nil {
-		log.Errorf("Failed to parse UID for user %s: %v", username, err)
-		return nil, err
+		return nil, fmt.Errorf("parse UID: %w", err)
 	}
 	gid, err := strconv.ParseUint(osUser.Gid, 10, 32)
 	if err != nil {
-		log.Errorf("Failed to parse GID for user %s: %v", username, err)
-		return nil, err
+		return nil, fmt.Errorf("parse GID: %w", err)
 	}
 
 	info := &Info{
@@ -47,14 +45,34 @@ func Lookup(username string) (*Info, error) {
 	info.Groups = append(info.Groups, uint32(gid))
 	groupIDs, err := osUser.GroupIds()
 	if err == nil {
-		for _, groupID := range groupIDs {
-			if parsed, err := strconv.ParseUint(groupID, 10, 32); err == nil {
+		for _, gidStr := range groupIDs {
+			if parsed, err := strconv.ParseUint(gidStr, 10, 32); err == nil {
 				info.Groups = append(info.Groups, uint32(parsed))
 			}
 		}
 	}
-	log.Debugf("User %s lookup successful: UID=%d, GID=%d, Home=%s, Shell=%s", username, info.Uid, info.Gid, info.HomeDir, info.Shell)
+
+	log.Debug("user lookup",
+		"user", username,
+		"uid", info.Uid,
+		"gid", info.Gid,
+		"home", info.HomeDir,
+		"shell", info.Shell)
 	return info, nil
+}
+
+// CurrentTTY returns the TTY path of stdin. If stdin is not a terminal,
+// isTTY is false and the path is empty.
+func CurrentTTY() (path string, isTTY bool, err error) {
+	fd := int(os.Stdin.Fd())
+	if !term.IsTerminal(fd) {
+		return "", false, nil
+	}
+	path, err = os.Readlink(fmt.Sprintf("/proc/self/fd/%d", fd))
+	if err != nil {
+		return "", false, err
+	}
+	return path, true, nil
 }
 
 func lookupShell(username string) string {
@@ -72,9 +90,6 @@ func lookupShell(username string) string {
 		if len(parts) > 6 && parts[0] == username {
 			return parts[6]
 		}
-	}
-	if err := scanner.Err(); err != nil {
-		return fallback
 	}
 	return fallback
 }

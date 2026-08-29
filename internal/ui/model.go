@@ -34,85 +34,88 @@ func NewModel(sessions []session.Session) Model {
 	}
 }
 
-func (model Model) Init() tea.Cmd {
-	return tea.Batch(model.credentialInput.Init(), model.spinner.Tick)
+func (m Model) Init() tea.Cmd {
+	return tea.Batch(m.credentialInput.Init(), m.spinner.Tick)
 }
 
-func (model Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if msg.Type == tea.KeyCtrlC {
-			return model, tea.Quit
+			return m, tea.Quit
 		}
 
 	case CredentialSubmitMsg:
-		log.Infof("Login attempt: %s", msg.Username)
-		selectedSession := model.sessionList.SelectedSession()
-		return model, tea.Batch(
-			authenticate(msg.Username, msg.Password, selectedSession),
-			model.spinner.Tick,
+		log.Info("login attempt", "user", msg.Username)
+		return m, tea.Batch(
+			authenticate(msg.Username, msg.Password, m.sessionList.SelectedSession()),
+			m.spinner.Tick,
 		)
 
 	case AuthResultMsg:
 		if msg.Err != nil {
-			var authErr *auth.Error
-			var userMsg string
-			if errors.As(msg.Err, &authErr) {
-				userMsg = authErr.Message
-			} else {
-				userMsg = "Authentication failed"
-			}
-			log.Errorf("Auth failed for %s: %v", msg.Username, msg.Err)
-			model.credentialInput.SetError(userMsg)
-			model.credentialInput.ClearPassword()
-			model.credentialInput.ClearSubmitting()
+			log.Error("auth failed", "user", msg.Username, "err", msg.Err)
+			m.credentialInput.SetError(errorMessage(msg.Err))
+			m.credentialInput.ClearPassword()
+			m.credentialInput.ClearSubmitting()
 		} else {
-			log.Infof("Auth success: %s", msg.Username)
-			model.authenticated = true
-			model.authenticatedUser = msg.Username
-			model.authenticatedSession = msg.Session
-			model.pamTx = msg.PAMTx
-			return model, tea.Quit
+			log.Info("auth success", "user", msg.Username)
+			m.authenticated = true
+			m.authenticatedUser = msg.Username
+			m.authenticatedSession = msg.Session
+			m.pamTx = msg.PAMTx
+			return m, tea.Quit
 		}
 
 	case spinner.TickMsg:
 		var cmd tea.Cmd
-		model.spinner, cmd = model.spinner.Update(msg)
-		return model, cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		return m, cmd
 	}
 
 	var cmds []tea.Cmd
 
-	sessionListModel, cmd := model.sessionList.Update(msg)
-	model.sessionList = sessionListModel
+	sessionListModel, cmd := m.sessionList.Update(msg)
+	m.sessionList = sessionListModel
 	cmds = append(cmds, cmd)
 
-	credentialInputModel, cmd := model.credentialInput.Update(msg)
-	model.credentialInput = credentialInputModel
+	credentialInputModel, cmd := m.credentialInput.Update(msg)
+	m.credentialInput = credentialInputModel
 	cmds = append(cmds, cmd)
 
-	return model, tea.Batch(cmds...)
+	return m, tea.Batch(cmds...)
 }
 
-func (model Model) View() string {
-	if model.authenticated {
-		return model.spinner.View() + " Starting session..."
+func (m Model) View() string {
+	if m.authenticated {
+		return m.spinner.View() + " Starting session..."
 	}
-
-	return model.sessionList.View() + "\n\n" + model.credentialInput.View()
+	return m.sessionList.View() + "\n\n" + m.credentialInput.View()
 }
 
 func authenticate(username, password string, sess session.Session) tea.Cmd {
 	return func() tea.Msg {
 		tx, err := auth.Authenticate(username, password)
-		if err != nil {
-			return AuthResultMsg{Err: err, Username: username, Session: sess}
+		return AuthResultMsg{
+			Err:      err,
+			PAMTx:    tx,
+			Username: username,
+			Session:  sess,
 		}
-		return AuthResultMsg{PAMTx: tx, Username: username, Session: sess}
 	}
 }
 
-func (model Model) Authenticated() bool                   { return model.authenticated }
-func (model Model) AuthenticatedUser() string             { return model.authenticatedUser }
-func (model Model) AuthenticatedSession() session.Session { return model.authenticatedSession }
-func (model Model) PAMTx() *pam.Transaction               { return model.pamTx }
+// errorMessage extracts the user-facing message from an auth error, falling
+// back to a generic message for unexpected errors.
+func errorMessage(err error) string {
+	var authErr *auth.Error
+	if errors.As(err, &authErr) {
+		return authErr.Message
+	}
+	return "Authentication failed"
+}
+
+func (m Model) Authenticated() bool                   { return m.authenticated }
+func (m Model) AuthenticatedUser() string             { return m.authenticatedUser }
+func (m Model) AuthenticatedSession() session.Session { return m.authenticatedSession }
+func (m Model) PAMTx() *pam.Transaction               { return m.pamTx }
