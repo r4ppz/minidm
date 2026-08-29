@@ -1,3 +1,3 @@
 # MINIDM
 
-Minimal CLI based display/login manager
+Minimal TUI based display/login manager
