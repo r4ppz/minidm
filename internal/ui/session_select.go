@@ -36,20 +36,24 @@ var sessionListKeys = sessionListKeyMap{
 	),
 }
 
+func (m SessionListModel) Init() tea.Cmd {
+	return nil
+}
+
 func (m SessionListModel) Update(msg tea.Msg) (SessionListModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, sessionListKeys.next):
-			if len(m.sessions) > 0 {
-				m.selectedIdx = (m.selectedIdx + 1) % len(m.sessions)
-			}
+			m = m.nextSession()
+			return m, nil
+
 		case key.Matches(msg, sessionListKeys.prev):
-			if len(m.sessions) > 0 {
-				m.selectedIdx = (m.selectedIdx - 1 + len(m.sessions)) % len(m.sessions)
-			}
+			m = m.prevSession()
+			return m, nil
 		}
 	}
+
 	return m, nil
 }
 
@@ -81,9 +85,35 @@ func (m SessionListModel) View() string {
 	return SessionListStyle.Render(viewContent)
 }
 
+func (m SessionListModel) nextSession() SessionListModel {
+	if len(m.sessions) > 0 {
+		m.selectedIdx = (m.selectedIdx + 1) % len(m.sessions)
+	}
+	return m
+}
+
+func (m SessionListModel) prevSession() SessionListModel {
+	if len(m.sessions) > 0 {
+		m.selectedIdx = (m.selectedIdx - 1 + len(m.sessions)) % len(m.sessions)
+	}
+	return m
+}
+
 func (m SessionListModel) SelectedSession() minidm.Session {
 	if len(m.sessions) > 0 && m.selectedIdx < len(m.sessions) {
 		return m.sessions[m.selectedIdx]
 	}
 	return minidm.Session{}
+}
+
+func (m SessionListModel) SetSessions(sessions []minidm.Session) SessionListModel {
+	m.sessions = sessions
+	if m.selectedIdx >= len(m.sessions) {
+		if len(m.sessions) > 0 {
+			m.selectedIdx = len(m.sessions) - 1
+		} else {
+			m.selectedIdx = 0
+		}
+	}
+	return m
 }
