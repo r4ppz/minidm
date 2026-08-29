@@ -9,34 +9,36 @@ import (
 )
 
 func main() {
-	if os.Getuid() != 0 {
-		println("minidm must be run as root")
-		os.Exit(1)
-	}
-
-	sessions := loadSessions()
-
-	m := ui.NewModel(sessions)
-	p := tea.NewProgram(m, tea.WithAltScreen())
-	if _, err := p.Run(); err != nil {
-		println("Error running TUI:", err.Error())
-		os.Exit(1)
-	}
-}
-
-func loadSessions() []minidm.Session {
 	sessions, err := minidm.DiscoverSessions()
-	if err == nil && len(sessions) > 0 {
-		return sessions
+	if err != nil {
+		minidm.Errorf("Failed to discover sessions: %v", err)
+		os.Exit(1)
 	}
 
-	return []minidm.Session{
-		{
-			ID:          "shell",
-			Name:        "Default Shell",
-			Exec:        "/bin/bash",
-			DesktopName: "Shell",
-			Type:        minidm.SessionWayland,
-		},
+	if len(sessions) == 0 {
+		minidm.Errorf("No sessions found")
+		os.Exit(1)
+	}
+
+	model := ui.NewModel(sessions)
+	p := tea.NewProgram(model, tea.WithAltScreen())
+
+	result, err := p.Run()
+	if err != nil {
+		minidm.Errorf("TUI error: %v", err)
+		os.Exit(1)
+	}
+
+	final := result.(ui.Model)
+
+	if !final.Authenticated() {
+		return
+	}
+
+	minidm.Infof("Launching session %s for user %s", final.AuthenticatedSession().Name, final.AuthenticatedUser())
+
+	if err := minidm.RunSession(final.AuthenticatedUser(), final.AuthenticatedSession(), final.PAMTx()); err != nil {
+		minidm.Errorf("Session error: %v", err)
+		os.Exit(1)
 	}
 }

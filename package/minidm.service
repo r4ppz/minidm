@@ -1,24 +1,31 @@
 [Unit]
 Description=Mini Display Manager
-After=systemd-user-sessions.service
+After=systemd-user-sessions.service seatd.service
+Wants=seatd.service
 Conflicts=getty@tty1.service
 Before=getty@tty1.service
+ConditionPathExists=/dev/tty1
 
 [Service]
 Type=simple
 ExecStart=/usr/bin/minidm
-Restart=on-failure
+Restart=always
 RestartSec=1
 
-# TTY Configuration
 TTYPath=/dev/tty1
 TTYReset=yes
 TTYVHangup=yes
 TTYVTDisallocate=yes
-StandardInput=tty
+StandardInput=tty-force
 StandardOutput=tty
 StandardError=journal
-ExecStartPre=-/usr/bin/chvt 1
+
+User=root
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_AUDIT_WRITE CAP_CHOWN
+
+Environment=XDG_SEAT=seat0
+Environment=XDG_VTNR=1
+Environment=TERM=linux
 
 [Install]
 WantedBy=graphical.target

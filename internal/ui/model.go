@@ -1,94 +1,112 @@
 package ui
 
 import (
+	"errors"
+
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/msteinert/pam/v2"
 	minidm "github.com/r4ppz/minidm/internal"
 )
 
 type Model struct {
-	sessions        []minidm.Session
 	sessionList     SessionListModel
 	credentialInput CredentialInputModel
 	spinner         spinner.Model
-	authenticating  bool
+
+	authenticated        bool
+	authenticatedUser    string
+	authenticatedSession minidm.Session
+	pamTx                *pam.Transaction
 }
 
 func NewModel(sessions []minidm.Session) Model {
-	s := spinner.New()
-	s.Spinner = spinner.Dot
-	s.Style = SpinnerStyle()
+	spin := spinner.New()
+	spin.Spinner = spinner.Dot
+	spin.Style = SpinnerStyle
 
 	return Model{
-		sessions:        sessions,
 		sessionList:     NewSessionListModel(sessions),
 		credentialInput: NewCredentialInputModel(),
-		spinner:         s,
+		spinner:         spin,
 	}
 }
 
-func (m Model) Init() tea.Cmd {
-	return tea.Batch(m.sessionList.Init(), m.credentialInput.Init(), m.spinner.Tick)
+func (model Model) Init() tea.Cmd {
+	return tea.Batch(model.credentialInput.Init(), model.spinner.Tick)
 }
 
-func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmds []tea.Cmd
-
+func (model Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if msg.Type == tea.KeyCtrlC {
-			return m, tea.Quit
+			return model, tea.Quit
 		}
 
 	case CredentialSubmitMsg:
-		m.authenticating = true
-		selectedSession := m.sessionList.SelectedSession()
-		return m, tea.Batch(m.authenticate(msg.Username, msg.Password, selectedSession), m.spinner.Tick)
+		minidm.Infof("Login attempt: %s", msg.Username)
+		selectedSession := model.sessionList.SelectedSession()
+		return model, tea.Batch(
+			authenticate(msg.Username, msg.Password, selectedSession),
+			model.spinner.Tick,
+		)
 
 	case AuthResultMsg:
-		m.authenticating = false
 		if msg.Err != nil {
-			m.credentialInput.SetError(msg.Err.Error())
-			cmds = append(cmds, m.credentialInput.Init())
+			var authErr *minidm.AuthError
+			var userMsg string
+			if errors.As(msg.Err, &authErr) {
+				userMsg = authErr.Message
+			} else {
+				userMsg = "Authentication failed"
+			}
+			minidm.Errorf("Auth failed for %s: %v", msg.Username, msg.Err)
+			model.credentialInput.SetError(userMsg)
+			model.credentialInput.ClearSubmitting()
 		} else {
-			return m, tea.Quit
+			minidm.Infof("Auth success: %s", msg.Username)
+			model.authenticated = true
+			model.authenticatedUser = msg.Username
+			model.authenticatedSession = msg.Session
+			model.pamTx = msg.PAMTx
+			return model, tea.Quit
 		}
 
 	case spinner.TickMsg:
 		var cmd tea.Cmd
-		m.spinner, cmd = m.spinner.Update(msg)
-		cmds = append(cmds, cmd)
+		model.spinner, cmd = model.spinner.Update(msg)
+		return model, cmd
 	}
 
-	sessionListModel, cmd := m.sessionList.Update(msg)
-	m.sessionList = sessionListModel
+	var cmds []tea.Cmd
+
+	sessionListModel, cmd := model.sessionList.Update(msg)
+	model.sessionList = sessionListModel
 	cmds = append(cmds, cmd)
 
-	credentialInputModel, cmd := m.credentialInput.Update(msg)
-	m.credentialInput = credentialInputModel
+	credentialInputModel, cmd := model.credentialInput.Update(msg)
+	model.credentialInput = credentialInputModel
 	cmds = append(cmds, cmd)
 
-	return m, tea.Batch(cmds...)
+	return model, tea.Batch(cmds...)
 }
 
-func (m Model) View() string {
-	var viewContent string
-
-	if m.authenticating {
-		viewContent += m.sessionList.View() + "\n\n"
-		viewContent += m.spinner.View() + " Authenticating..."
-		return BaseStyle().Render(viewContent)
+func (model Model) View() string {
+	if model.authenticated {
+		return model.spinner.View() + " Starting session..."
 	}
 
-	viewContent += m.sessionList.View() + "\n\n"
-	viewContent += m.credentialInput.View()
-
-	return BaseStyle().Render(viewContent)
+	return model.sessionList.View() + "\n\n" + model.credentialInput.View()
 }
 
-func (m *Model) authenticate(username, password string, session minidm.Session) tea.Cmd {
+func authenticate(username string, password string, session minidm.Session) tea.Cmd {
 	return func() tea.Msg {
-		err := minidm.Login(username, password, session)
-		return AuthResultMsg{Err: err}
+		tx, err := minidm.Authenticate(username, password, session)
+		return AuthResultMsg{Err: err, Username: username, PAMTx: tx, Session: session}
 	}
 }
+
+func (model Model) Authenticated() bool                  { return model.authenticated }
+func (model Model) AuthenticatedUser() string            { return model.authenticatedUser }
+func (model Model) AuthenticatedSession() minidm.Session { return model.authenticatedSession }
+func (model Model) PAMTx() *pam.Transaction              { return model.pamTx }

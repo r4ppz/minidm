@@ -25,17 +25,13 @@ type sessionListKeyMap struct {
 
 var sessionListKeys = sessionListKeyMap{
 	next: key.NewBinding(
-		key.WithKeys("tab"),
-		key.WithHelp("tab", "next session"),
+		key.WithKeys("down", "j"),
+		key.WithHelp("↓/j", "next session"),
 	),
 	prev: key.NewBinding(
-		key.WithKeys("shift+tab"),
-		key.WithHelp("shift+tab", "prev session"),
+		key.WithKeys("up", "k"),
+		key.WithHelp("↑/k", "prev session"),
 	),
-}
-
-func (m SessionListModel) Init() tea.Cmd {
-	return nil
 }
 
 func (m SessionListModel) Update(msg tea.Msg) (SessionListModel, tea.Cmd) {
@@ -61,21 +57,22 @@ func (m SessionListModel) View() string {
 	}
 
 	var viewContent string
-	viewContent += "Session: "
+	viewContent += "Session:\n"
 
 	for i, sess := range m.sessions {
-		if i > 0 {
-			viewContent += "  "
-		}
-
+		prefix := "  "
 		if i == m.selectedIdx {
-			viewContent += CurrentSessionStyle().Render("▸ " + sess.Name + " (" + string(sess.Type) + ")")
+			prefix = CurrentSessionStyle.Render("▸ ")
+			viewContent += prefix + CurrentSessionStyle.Render(sess.Name+" ("+string(sess.Type)+")")
 		} else {
-			viewContent += OtherSessionStyle().Render(sess.Name + " (" + string(sess.Type) + ")")
+			viewContent += prefix + OtherSessionStyle.Render(sess.Name+" ("+string(sess.Type)+")")
+		}
+		if i < len(m.sessions)-1 {
+			viewContent += "\n"
 		}
 	}
 
-	return SessionListStyle().Render(viewContent)
+	return SessionListStyle.Render(viewContent)
 }
 
 func (m SessionListModel) SelectedSession() minidm.Session {
@@ -83,17 +80,4 @@ func (m SessionListModel) SelectedSession() minidm.Session {
 		return m.sessions[m.selectedIdx]
 	}
 	return minidm.Session{}
-}
-
-func (m *SessionListModel) SetSessions(sessions []minidm.Session) {
-	m.sessions = sessions
-	if m.selectedIdx >= len(sessions) {
-		m.selectedIdx = 0
-	}
-}
-
-func (m *SessionListModel) SetSelectedIdx(idx int) {
-	if idx >= 0 && idx < len(m.sessions) {
-		m.selectedIdx = idx
-	}
 }

@@ -2,68 +2,97 @@ package minidm
 
 import (
 	"fmt"
-	"os"
+	"strings"
 
 	"github.com/msteinert/pam/v2"
 )
 
-func Login(user string, password string, sess Session) error {
-	handler := func(s pam.Style, msg string) (string, error) {
-		switch s {
+func Authenticate(user string, password string, session Session) (*pam.Transaction, error) {
+	Infof("Authenticating user: %s", user)
+
+	var pamErrMsg string
+
+	handler := func(style pam.Style, msg string) (string, error) {
+		switch style {
 		case pam.PromptEchoOff:
 			return password, nil
 		case pam.PromptEchoOn:
 			return user, nil
 		case pam.ErrorMsg:
-			fmt.Fprintln(os.Stderr, msg)
+			pamErrMsg = msg
+			Errorf("PAM error: %s", msg)
 			return "", nil
 		case pam.TextInfo:
-			fmt.Println(msg)
+			Debugf("PAM info: %s", msg)
 			return "", nil
 		default:
-			return "", fmt.Errorf("unknown style %v", s)
+			return "", fmt.Errorf("unknown PAM style %v", style)
 		}
 	}
 
-	tx, err := pam.StartFunc("login", user, handler)
+	tx, err := pam.StartFunc("minidm", user, handler)
 	if err != nil {
-		return fmt.Errorf("pam start failed: %w", err)
+		Errorf("PAM start: %v", err)
+		return nil, NewAuthError(ErrSystemError, fmt.Errorf("pam start: %w", err))
 	}
-	defer tx.End()
 
 	tty, ok, err := CurrentTTY()
 	if err != nil {
-		return fmt.Errorf("failed to get current tty: %w", err)
+		Errorf("Get TTY: %v", err)
+		tx.End()
+		return nil, NewAuthError(ErrSystemError, fmt.Errorf("get tty: %w", err))
 	}
-
 	if ok && tty != "" {
+		Debugf("PAM TTY: %s", tty)
 		if err := tx.SetItem(pam.Tty, tty); err != nil {
-			return fmt.Errorf("failed to set tty: %w", err)
+			Errorf("Set PAM TTY: %v", err)
+			tx.End()
+			return nil, NewAuthError(ErrSystemError, fmt.Errorf("set tty: %w", err))
 		}
 	}
 
 	if err := tx.Authenticate(0); err != nil {
-		return fmt.Errorf("authentication failed: %w", err)
+		if pamErrMsg != "" {
+			err = fmt.Errorf("%s: %w", pamErrMsg, err)
+		}
+		Errorf("Auth failed for %s: %v", user, err)
+		tx.End()
+		return nil, mapPAMError(err)
 	}
 
 	if err := tx.AcctMgmt(0); err != nil {
-		return fmt.Errorf("account management check failed: %w", err)
+		Errorf("Acct mgmt failed for %s: %v", user, err)
+		tx.End()
+		return nil, NewAuthError(ErrSystemError, fmt.Errorf("account management: %w", err))
 	}
 
 	if err := tx.SetCred(pam.EstablishCred); err != nil {
-		return fmt.Errorf("failed to establish credentials: %w", err)
-	}
-	defer tx.SetCred(pam.DeleteCred)
-
-	if err := tx.OpenSession(0); err != nil {
-		return fmt.Errorf("failed to open session: %w", err)
-	}
-	defer tx.CloseSession(0)
-
-	env, err := tx.GetEnvList()
-	if err != nil {
-		return err
+		Errorf("Set cred failed for %s: %v", user, err)
+		tx.End()
+		return nil, NewAuthError(ErrSystemError, fmt.Errorf("establish credentials: %w", err))
 	}
 
-	return RunSession(user, sess, env)
+	Infof("Auth success: %s", user)
+	return tx, nil
+}
+
+func mapPAMError(err error) *AuthError {
+	if err == nil {
+		return nil
+	}
+	msg := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(msg, "authentication failure"), strings.Contains(msg, "auth failed"):
+		return NewAuthError(ErrAuthFailed, err)
+	case strings.Contains(msg, "user unknown"), strings.Contains(msg, "no such user"):
+		return NewAuthError(ErrUserUnknown, err)
+	case strings.Contains(msg, "account expired"), strings.Contains(msg, "password expired"):
+		return NewAuthError(ErrAccountExpired, err)
+	case strings.Contains(msg, "account locked"), strings.Contains(msg, "locked"):
+		return NewAuthError(ErrAccountLocked, err)
+	case strings.Contains(msg, "permission denied"), strings.Contains(msg, "access denied"):
+		return NewAuthError(ErrPermissionDenied, err)
+	default:
+		return NewAuthError(ErrSystemError, err)
+	}
 }

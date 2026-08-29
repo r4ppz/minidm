@@ -33,6 +33,7 @@ lint: fmt-check vet staticcheck
 install: build
 	install -Dm755 $(BIN_DIR)/$(BINARY) $(DESTDIR)$(PREFIX)/bin/$(BINARY)
 	install -Dm644 package/$(BINARY).service $(DESTDIR)/usr/lib/systemd/system/$(BINARY).service
+	install -Dm644 package/pam.d/minidm $(DESTDIR)/etc/pam.d/minidm
 
 package:
 	@set -e; \

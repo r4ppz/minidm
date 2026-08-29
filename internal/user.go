@@ -20,36 +20,41 @@ type UserInfo struct {
 }
 
 func LookupUser(username string) (*UserInfo, error) {
-	usr, err := user.Lookup(username)
+	Debugf("Looking up user: %s", username)
+	osUser, err := user.Lookup(username)
 	if err != nil {
+		Errorf("Failed to lookup user %s: %v", username, err)
 		return nil, err
 	}
 
-	uid, err := strconv.ParseUint(usr.Uid, 10, 32)
+	uid, err := strconv.ParseUint(osUser.Uid, 10, 32)
 	if err != nil {
+		Errorf("Failed to parse UID for user %s: %v", username, err)
 		return nil, err
 	}
-	gid, err := strconv.ParseUint(usr.Gid, 10, 32)
+	gid, err := strconv.ParseUint(osUser.Gid, 10, 32)
 	if err != nil {
+		Errorf("Failed to parse GID for user %s: %v", username, err)
 		return nil, err
 	}
 
 	info := &UserInfo{
 		Uid:     uint32(uid),
 		Gid:     uint32(gid),
-		HomeDir: usr.HomeDir,
-		Shell:   shellFor(username),
+		HomeDir: osUser.HomeDir,
+		Shell:   shellForUser(username),
 	}
 
 	info.Groups = append(info.Groups, uint32(gid))
-	gids, err := usr.GroupIds()
+	groupIDs, err := osUser.GroupIds()
 	if err == nil {
-		for _, g := range gids {
-			if v, err := strconv.ParseUint(g, 10, 32); err == nil {
-				info.Groups = append(info.Groups, uint32(v))
+		for _, groupID := range groupIDs {
+			if parsed, err := strconv.ParseUint(groupID, 10, 32); err == nil {
+				info.Groups = append(info.Groups, uint32(parsed))
 			}
 		}
 	}
+	Debugf("User %s lookup successful: UID=%d, GID=%d, Home=%s, Shell=%s", username, info.Uid, info.Gid, info.HomeDir, info.Shell)
 	return info, nil
 }
 
@@ -68,7 +73,7 @@ func CurrentTTY() (ttyPath string, isTTY bool, err error) {
 	return tty, true, nil
 }
 
-func shellFor(username string) string {
+func shellForUser(username string) string {
 	fallback := "/bin/sh"
 
 	file, err := os.Open("/etc/passwd")

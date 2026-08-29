@@ -5,8 +5,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
+
+	"github.com/msteinert/pam/v2"
 )
 
 type SessionType string
@@ -32,12 +35,13 @@ func DiscoverSessions() ([]Session, error) {
 		sessionType SessionType
 	}{
 		{"/usr/share/wayland-sessions", SessionWayland},
-		{"/usr/share/xsession", SessionX11},
+		{"/usr/share/xsessions", SessionX11},
 	}
 
 	for _, target := range targets {
 		files, err := os.ReadDir(target.dir)
 		if err != nil {
+			Debugf("Session directory %s: %v", target.dir, err)
 			continue
 		}
 
@@ -48,31 +52,34 @@ func DiscoverSessions() ([]Session, error) {
 
 			fullpath := filepath.Join(target.dir, file.Name())
 			sess, err := parseDesktopFile(fullpath, target.sessionType)
-			if err == nil && sess.Exec != "" {
+			if err != nil {
+				Debugf("Parse %s: %v", fullpath, err)
+				continue
+			}
+			if sess.Exec != "" {
 				sessions = append(sessions, sess)
 			}
-
 		}
 	}
 
+	Infof("Discovered %d sessions", len(sessions))
 	return sessions, nil
 }
 
-func parseDesktopFile(path string, sType SessionType) (Session, error) {
+func parseDesktopFile(path string, sessionType SessionType) (Session, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return Session{}, nil
+		return Session{}, err
 	}
 	defer file.Close()
 
 	base := filepath.Base(path)
-	sess := Session{
+	session := Session{
 		ID:   strings.TrimSuffix(base, ".desktop"),
-		Type: sType,
+		Type: sessionType,
 	}
 
 	scanner := bufio.NewScanner(file)
-
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if strings.HasPrefix(line, "#") || !strings.Contains(line, "=") {
@@ -81,63 +88,109 @@ func parseDesktopFile(path string, sType SessionType) (Session, error) {
 
 		parts := strings.SplitN(line, "=", 2)
 		key := strings.TrimSpace(parts[0])
-		val := strings.TrimSpace(parts[1])
+		value := strings.TrimSpace(parts[1])
 
 		switch key {
 		case "Name":
-			if sess.Name == "" {
-				sess.Name = val
+			if session.Name == "" {
+				session.Name = value
 			}
 		case "Exec":
-			sess.Exec = val
+			session.Exec = value
 		case "DesktopNames":
-			sess.DesktopName = val
+			session.DesktopName = value
 		}
 	}
 
-	if sess.Name == "" {
-		sess.Name = sess.ID
+	if session.Name == "" {
+		session.Name = session.ID
+	}
+	if session.DesktopName == "" {
+		session.DesktopName = session.Name
 	}
 
-	if sess.DesktopName == "" {
-		sess.DesktopName = sess.Name
-	}
-
-	return sess, scanner.Err()
+	return session, scanner.Err()
 }
 
-func RunSession(user string, sess Session, pamEnv map[string]string) error {
-	u, err := LookupUser(user)
+func RunSession(user string, session Session, tx *pam.Transaction) error {
+	Infof("Starting session %s for user %s", session.Name, user)
+
+	userInfo, err := LookupUser(user)
 	if err != nil {
+		Errorf("Lookup user %s: %v", user, err)
 		return err
 	}
 
-	// Base environment
+	runtimeDir := "/run/user/" + strconv.FormatUint(uint64(userInfo.Uid), 10)
+	if err := os.MkdirAll(runtimeDir, 0700); err != nil {
+		Errorf("Create XDG_RUNTIME_DIR %s: %v", runtimeDir, err)
+		return err
+	} else if err := os.Chown(runtimeDir, int(userInfo.Uid), int(userInfo.Gid)); err != nil {
+		Errorf("Chown XDG_RUNTIME_DIR %s: %v", runtimeDir, err)
+	}
+
+	if err := tx.OpenSession(0); err != nil {
+		Errorf("PAM open session for %s: %v", user, err)
+		return err
+	}
+	defer tx.CloseSession(0)
+	defer tx.SetCred(pam.DeleteCred)
+	defer tx.End()
+
+	pamEnv, err := tx.GetEnvList()
+	if err != nil {
+		Errorf("PAM get env for %s: %v", user, err)
+		return err
+	}
+
+	Infof("PAM env for %s: %v", user, pamEnv)
+
+	seat := os.Getenv("XDG_SEAT")
+	if seat == "" {
+		seat = "seat0"
+	}
+
 	env := []string{
-		"HOME=" + u.HomeDir,
+		"HOME=" + userInfo.HomeDir,
 		"USER=" + user,
 		"LOGNAME=" + user,
-		"SHELL=" + u.Shell,
+		"SHELL=" + userInfo.Shell,
 		"PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/bin",
-
-		// Dynamic XDG variables based on detected session:
-		"XDG_SESSION_TYPE=" + string(sess.Type),
-		"XDG_SESSION_DESKTOP=" + sess.ID,
-		"XDG_CURRENT_DESKTOP=" + sess.DesktopName,
+		"XDG_RUNTIME_DIR=" + runtimeDir,
+		"XDG_SESSION_TYPE=" + string(session.Type),
+		"XDG_SESSION_DESKTOP=" + session.ID,
+		"XDG_CURRENT_DESKTOP=" + session.DesktopName,
 		"XDG_SESSION_CLASS=user",
+		"XDG_SEAT=" + seat,
+	}
+
+	if vtnr := os.Getenv("XDG_VTNR"); vtnr != "" {
+		env = append(env, "XDG_VTNR="+vtnr)
 	}
 
 	for k, v := range pamEnv {
 		env = append(env, k+"="+v)
 	}
 
-	cmd := exec.Command(u.Shell, "-l", "-c", "exec "+sess.Exec)
+	cmd := exec.Command(userInfo.Shell, "-l", "-c", "exec "+session.Exec)
 	cmd.Env = env
-	cmd.Dir = u.HomeDir
+	cmd.Dir = userInfo.HomeDir
 	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Credential: &syscall.Credential{Uid: u.Uid, Gid: u.Gid, Groups: u.Groups},
+		Setsid: true,
+		Credential: &syscall.Credential{
+			Uid:    userInfo.Uid,
+			Gid:    userInfo.Gid,
+			Groups: userInfo.Groups,
+		},
 	}
-	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 
-	return cmd.Run()
+	Debugf("Exec: %s", session.Exec)
+	err = cmd.Run()
+	if err != nil {
+		Errorf("Session %s for %s: %v", session.Name, user, err)
+	}
+	return err
 }
