@@ -6,10 +6,17 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+type FocusField int
+
+const (
+	FocusUsername FocusField = iota
+	FocusPassword
+)
+
 type CredentialInputModel struct {
 	usernameInput textinput.Model
 	passwordInput textinput.Model
-	focusIndex    int
+	focused       FocusField
 	errMsg        string
 	submitting    bool
 }
@@ -37,7 +44,7 @@ func NewCredentialInputModel() CredentialInputModel {
 	return CredentialInputModel{
 		usernameInput: usernameInput,
 		passwordInput: passwordInput,
-		focusIndex:    0,
+		focused:       FocusUsername,
 	}
 }
 
@@ -74,16 +81,21 @@ func (m CredentialInputModel) Update(msg tea.Msg) (CredentialInputModel, tea.Cmd
 		}
 		switch {
 		case key.Matches(msg, credentialInputKeys.next), key.Matches(msg, credentialInputKeys.prev):
-			m.toggleFocus()
+			m = m.toggleFocus()
+			return m, nil
+
 		case key.Matches(msg, credentialInputKeys.enter):
-			if m.focusIndex == 0 {
+			switch m.focused {
+			case FocusUsername:
 				if m.usernameInput.Value() == "" {
 					m.errMsg = "Username required"
 				} else {
-					m.focusIndex = 1
-					m.updateFocus()
+					m.focused = FocusPassword
+					m = m.updateFocus()
 				}
-			} else if m.focusIndex == 1 {
+				return m, nil
+
+			case FocusPassword:
 				if m.usernameInput.Value() == "" {
 					m.errMsg = "Username required"
 				} else if m.passwordInput.Value() == "" {
@@ -96,41 +108,47 @@ func (m CredentialInputModel) Update(msg tea.Msg) (CredentialInputModel, tea.Cmd
 						return CredentialSubmitMsg{Username: user, Password: pass}
 					}
 				}
+				return m, nil
 			}
 		}
 	}
 
-	var cmds []tea.Cmd
-
-	if m.focusIndex == 0 {
-		m.usernameInput, _ = m.usernameInput.Update(msg)
-	} else {
-		m.passwordInput, _ = m.passwordInput.Update(msg)
+	var cmd tea.Cmd
+	switch m.focused {
+	case FocusUsername:
+		m.usernameInput, cmd = m.usernameInput.Update(msg)
+	case FocusPassword:
+		m.passwordInput, cmd = m.passwordInput.Update(msg)
 	}
 
-	return m, tea.Batch(cmds...)
+	return m, cmd
 }
 
-func (m *CredentialInputModel) toggleFocus() {
-	m.focusIndex = (m.focusIndex + 1) % 2
-	m.updateFocus()
+func (m CredentialInputModel) toggleFocus() CredentialInputModel {
+	if m.focused == FocusUsername {
+		m.focused = FocusPassword
+	} else {
+		m.focused = FocusUsername
+	}
+	return m.updateFocus()
 }
 
-func (m *CredentialInputModel) updateFocus() {
-	if m.focusIndex == 0 {
+func (m CredentialInputModel) updateFocus() CredentialInputModel {
+	if m.focused == FocusUsername {
 		m.usernameInput.Focus()
 		m.passwordInput.Blur()
 	} else {
 		m.usernameInput.Blur()
 		m.passwordInput.Focus()
 	}
+	return m
 }
 
 func (m CredentialInputModel) View() string {
 	var viewContent string
 
-	usernameStyle := Input(m.focusIndex == 0)
-	passwordStyle := Input(m.focusIndex == 1)
+	usernameStyle := Input(m.focused == FocusUsername)
+	passwordStyle := Input(m.focused == FocusPassword)
 
 	usernameLabel := LabelStyle.Render("Username:")
 	passwordLabel := LabelStyle.Render("Password:")
@@ -151,15 +169,18 @@ func (m CredentialInputModel) View() string {
 	return viewContent
 }
 
-func (m *CredentialInputModel) SetError(err string) {
+func (m CredentialInputModel) SetError(err string) CredentialInputModel {
 	m.errMsg = err
 	m.submitting = false
+	return m
 }
 
-func (m *CredentialInputModel) ClearPassword() {
+func (m CredentialInputModel) ClearPassword() CredentialInputModel {
 	m.passwordInput.Reset()
+	return m
 }
 
-func (m *CredentialInputModel) ClearSubmitting() {
+func (m CredentialInputModel) ClearSubmitting() CredentialInputModel {
 	m.submitting = false
+	return m
 }
