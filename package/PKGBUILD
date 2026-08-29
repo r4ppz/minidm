@@ -1,18 +1,19 @@
-# Do not use this
 pkgname=minidm
 pkgver=0.1.0
 pkgrel=1
-pkgdesc="Minimal display manager"
+pkgdesc="Minimal TUI display manager"
 arch=('x86_64')
 url="https://github.com/r4ppz/minidm"
 license=('MIT')
-depends=('pam')
+depends=('pam' 'glibc')
 makedepends=('go')
-source=("git+https://github.com/r4ppz/minidm.git")
-sha256sums=('SKIP') # nada
+source=("${pkgname}::git+${url}.git#tag=v${pkgver}")
+sha256sums=('SKIP')
 
 build() {
 	cd "$srcdir/$pkgname"
+	export CGO_ENABLED=1
+	export GOFLAGS="-trimpath -buildvcs=false"
 	make build
 }
 
@@ -21,4 +22,5 @@ package() {
 	install -Dm755 bin/minidm "$pkgdir/usr/bin/minidm"
 	install -Dm644 package/minidm.service "$pkgdir/usr/lib/systemd/system/minidm.service"
 	install -Dm644 package/pam.d/minidm "$pkgdir/etc/pam.d/minidm"
+	install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
